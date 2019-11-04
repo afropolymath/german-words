@@ -1,0 +1,184 @@
+$deck-list-item-border-color: #dedede;
+
+body {
+  font: normal 14px/22px "Noto Sans TC", Arial, Helvetica, sans-serif;
+  margin: 0;
+}
+
+p,
+h1 {
+  margin: 0;
+}
+
+h1 {
+  font-family: "Playfair Display";
+}
+
+/**
+  Mixins
+*/
+@mixin right-arrow($color, $arrow-size) {
+  width: 0;
+  height: 0;
+  border-top: $arrow-size solid transparent;
+  border-bottom: $arrow-size solid transparent;
+  border-left: $arrow-size solid $color;
+}
+
+@mixin right-chevron($color, $size, $border-thickness: 1px) {
+  display: block;
+  width: $size;
+  height: $size;
+  border-top: solid $border-thickness $color;
+  border-right: solid $border-thickness $color;
+  transform: rotate(45deg);
+  border-top-right-radius: 4px;
+}
+
+@mixin left-chevron($color, $size, $border-thickness: 1px) {
+  display: block;
+  width: $size;
+  height: $size;
+  border-top: solid $border-thickness $color;
+  border-left: solid $border-thickness $color;
+  transform: rotate(-45deg);
+  border-top-left-radius: 4px;
+}
+
+section.header {
+  height: 100px;
+  padding: 0 20px 20px 20px;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: solid 1px #dedede;
+
+  .logo {
+    font-size: 2em;
+    align-self: flex-end;
+  }
+}
+
+section.main {
+  padding: 20px;
+}
+
+.container {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.deck-list {
+  display: flex;
+  align-content: space-around;
+
+  .deck-list-item {
+    position: relative;
+    border: solid 1px $deck-list-item-border-color;
+    border-radius: 3px;
+    flex-grow: 1;
+    max-width: 50%;
+    padding: 12px 15px;
+    margin-right: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+
+    &::after {
+      @include right-chevron(transparent, 14px, 2px);
+      content: "";
+      position: absolute;
+      margin: auto 0;
+      right: 14px;
+      top: 0;
+      bottom: 0;
+      transition: border-color 0.3s;
+    }
+
+    &:hover {
+      border-color: darken($deck-list-item-border-color, 10%);
+      box-shadow: 1px 3px 8px 0 rgba(0, 0, 0, 0.048);
+
+      &::after {
+        border-color: #b3acac;
+      }
+    }
+
+    .deck-name {
+      font-weight: 700;
+    }
+
+    .deck-stat {
+      font-size: 0.85em;
+    }
+  }
+}
+
+.active-card {
+  position: relative;
+  font-family: "Playfair Display";
+  border: solid 1px $deck-list-item-border-color;
+  border-radius: 8px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  h1 {
+    font-size: 2.3em;
+    font-weight: 700;
+  }
+
+  .control-right,
+  .control-left {
+    position: absolute;
+    cursor: pointer;
+    padding: 15px;
+    border: solid 1px $deck-list-item-border-color;
+
+    &:hover {
+      box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.13);
+    }
+  }
+
+  .control-left {
+    left: 0;
+    border-left: none;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+
+    &::after {
+      content: "";
+      @include left-chevron(grey, 14px);
+    }
+  }
+
+  .control-right {
+    right: 0;
+    border-right: none;
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+
+    &::after {
+      content: "";
+      @include right-chevron(grey, 14px);
+    }
+  }
+}
+
+.deck-card-navigation {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  margin-top: 10px;
+
+  li {
+    display: inline-block;
+    border: solid 1px $deck-list-item-border-color;
+    border-radius: 4px;
+    padding: 4px 10px;
+    margin-right: 5px;
+    font-size: 0.85em;
+  }
+}

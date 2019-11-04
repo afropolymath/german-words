@@ -1,0 +1,24 @@
+{
+  "name": "german-words",
+  "version": "1.0.0",
+  "description": "German language flashcard application",
+  "main": "src/Main.elm",
+  "repository": "git@github.com:afropolymath/german-words.git",
+  "author": "Chidiebere Nnadi <chidiebere.nnadi@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "build:scss": "node-sass -r --output-style compressed assets/scss/main.scss -o dist",
+    "build:all": "yarn build:scss && make build",
+    "dev": "concurrently \"yarn watch:scss\" \"yarn watch:elm\" \"yarn dev:server\"",
+    "dev:server": "reload -b --watch-dir dist",
+    "watch:scss": "yarn build:scss && yarn build:scss -- -w",
+    "watch:elm": "chokidar 'src/**/*.elm' -c 'make build' --initial"
+  },
+  "dependencies": {
+    "chokidar-cli": "^2.1.0",
+    "concurrently": "^5.0.0",
+    "node-sass": "^4.13.0",
+    "reload": "^3.0.3"
+  }
+}
