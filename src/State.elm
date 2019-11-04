@@ -1,12 +1,22 @@
-module State exposing (init, subscriptions, update)
+module State exposing (init, subscriptions, update, updateWithStorage)
 
 import AppTypes exposing (..)
 import Decks exposing (..)
+import Ports exposing (..)
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( Model availableDecks 2 0 False
+init : Maybe (List Deck) -> ( Model, Cmd Msg )
+init flags =
+    let
+        decks =
+            case flags of
+                Just cachedDecks ->
+                    cachedDecks
+
+                Nothing ->
+                    availableDecks
+    in
+    ( Model decks 2 0 False
     , Cmd.none
     )
 
@@ -33,6 +43,17 @@ updateDeck activeDeckId func deckIterIndex deck =
 
     else
         deck
+
+
+updateWithStorage msg model =
+    let
+        ( newModel, commands ) =
+            update msg model
+
+        decks =
+            newModel.decks
+    in
+    ( newModel, Cmd.batch [ commands, cacheDecks decks ] )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

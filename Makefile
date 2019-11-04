@@ -1,3 +1,3 @@
 build: src/*
 	@echo "Building files..."
-	@elm make src/Main.elm --output=dist/app.js
+	@elm make src/Main.elm --output=public/js/app.js
