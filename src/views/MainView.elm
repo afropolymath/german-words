@@ -11,8 +11,6 @@ import String exposing (join)
 
 {- | References
 
-   Render selected deck with necessary learning controls
-
    Html Attributes package
    https://package.elm-lang.org/packages/elm/html/latest/Html-Attributes
 
@@ -91,15 +89,6 @@ renderDeckList decks =
 
 
 
--- Get one of the decks in the list of decks
-
-
-getDeck : List Deck -> Int -> Maybe Deck
-getDeck decks deckId =
-    getAt deckId decks
-
-
-
 -- Render all the available decks in a list or display selected deck
 
 
@@ -109,7 +98,7 @@ renderDecks decks deckId cardId cardFrontActive =
         renderDeckList decks
 
     else
-        case getDeck decks deckId of
+        case getAt deckId decks of
             Just activeDeck ->
                 renderDeck activeDeck cardId cardFrontActive
 

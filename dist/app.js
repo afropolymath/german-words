@@ -80,6 +80,271 @@ function A9(fun, a, b, c, d, e, f, g, h, i) {
 console.warn('Compiled in DEV mode. Follow the advice at https://elm-lang.org/0.19.0/optimize for better performance and smaller assets.');
 
 
+var _List_Nil_UNUSED = { $: 0 };
+var _List_Nil = { $: '[]' };
+
+function _List_Cons_UNUSED(hd, tl) { return { $: 1, a: hd, b: tl }; }
+function _List_Cons(hd, tl) { return { $: '::', a: hd, b: tl }; }
+
+
+var _List_cons = F2(_List_Cons);
+
+function _List_fromArray(arr)
+{
+	var out = _List_Nil;
+	for (var i = arr.length; i--; )
+	{
+		out = _List_Cons(arr[i], out);
+	}
+	return out;
+}
+
+function _List_toArray(xs)
+{
+	for (var out = []; xs.b; xs = xs.b) // WHILE_CONS
+	{
+		out.push(xs.a);
+	}
+	return out;
+}
+
+var _List_map2 = F3(function(f, xs, ys)
+{
+	for (var arr = []; xs.b && ys.b; xs = xs.b, ys = ys.b) // WHILE_CONSES
+	{
+		arr.push(A2(f, xs.a, ys.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_map3 = F4(function(f, xs, ys, zs)
+{
+	for (var arr = []; xs.b && ys.b && zs.b; xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
+	{
+		arr.push(A3(f, xs.a, ys.a, zs.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_map4 = F5(function(f, ws, xs, ys, zs)
+{
+	for (var arr = []; ws.b && xs.b && ys.b && zs.b; ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
+	{
+		arr.push(A4(f, ws.a, xs.a, ys.a, zs.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_map5 = F6(function(f, vs, ws, xs, ys, zs)
+{
+	for (var arr = []; vs.b && ws.b && xs.b && ys.b && zs.b; vs = vs.b, ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
+	{
+		arr.push(A5(f, vs.a, ws.a, xs.a, ys.a, zs.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_sortBy = F2(function(f, xs)
+{
+	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
+		return _Utils_cmp(f(a), f(b));
+	}));
+});
+
+var _List_sortWith = F2(function(f, xs)
+{
+	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
+		var ord = A2(f, a, b);
+		return ord === elm$core$Basics$EQ ? 0 : ord === elm$core$Basics$LT ? -1 : 1;
+	}));
+});
+
+
+
+// EQUALITY
+
+function _Utils_eq(x, y)
+{
+	for (
+		var pair, stack = [], isEqual = _Utils_eqHelp(x, y, 0, stack);
+		isEqual && (pair = stack.pop());
+		isEqual = _Utils_eqHelp(pair.a, pair.b, 0, stack)
+		)
+	{}
+
+	return isEqual;
+}
+
+function _Utils_eqHelp(x, y, depth, stack)
+{
+	if (depth > 100)
+	{
+		stack.push(_Utils_Tuple2(x,y));
+		return true;
+	}
+
+	if (x === y)
+	{
+		return true;
+	}
+
+	if (typeof x !== 'object' || x === null || y === null)
+	{
+		typeof x === 'function' && _Debug_crash(5);
+		return false;
+	}
+
+	/**/
+	if (x.$ === 'Set_elm_builtin')
+	{
+		x = elm$core$Set$toList(x);
+		y = elm$core$Set$toList(y);
+	}
+	if (x.$ === 'RBNode_elm_builtin' || x.$ === 'RBEmpty_elm_builtin')
+	{
+		x = elm$core$Dict$toList(x);
+		y = elm$core$Dict$toList(y);
+	}
+	//*/
+
+	/**_UNUSED/
+	if (x.$ < 0)
+	{
+		x = elm$core$Dict$toList(x);
+		y = elm$core$Dict$toList(y);
+	}
+	//*/
+
+	for (var key in x)
+	{
+		if (!_Utils_eqHelp(x[key], y[key], depth + 1, stack))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+var _Utils_equal = F2(_Utils_eq);
+var _Utils_notEqual = F2(function(a, b) { return !_Utils_eq(a,b); });
+
+
+
+// COMPARISONS
+
+// Code in Generate/JavaScript.hs, Basics.js, and List.js depends on
+// the particular integer values assigned to LT, EQ, and GT.
+
+function _Utils_cmp(x, y, ord)
+{
+	if (typeof x !== 'object')
+	{
+		return x === y ? /*EQ*/ 0 : x < y ? /*LT*/ -1 : /*GT*/ 1;
+	}
+
+	/**/
+	if (x instanceof String)
+	{
+		var a = x.valueOf();
+		var b = y.valueOf();
+		return a === b ? 0 : a < b ? -1 : 1;
+	}
+	//*/
+
+	/**_UNUSED/
+	if (typeof x.$ === 'undefined')
+	//*/
+	/**/
+	if (x.$[0] === '#')
+	//*/
+	{
+		return (ord = _Utils_cmp(x.a, y.a))
+			? ord
+			: (ord = _Utils_cmp(x.b, y.b))
+				? ord
+				: _Utils_cmp(x.c, y.c);
+	}
+
+	// traverse conses until end of a list or a mismatch
+	for (; x.b && y.b && !(ord = _Utils_cmp(x.a, y.a)); x = x.b, y = y.b) {} // WHILE_CONSES
+	return ord || (x.b ? /*GT*/ 1 : y.b ? /*LT*/ -1 : /*EQ*/ 0);
+}
+
+var _Utils_lt = F2(function(a, b) { return _Utils_cmp(a, b) < 0; });
+var _Utils_le = F2(function(a, b) { return _Utils_cmp(a, b) < 1; });
+var _Utils_gt = F2(function(a, b) { return _Utils_cmp(a, b) > 0; });
+var _Utils_ge = F2(function(a, b) { return _Utils_cmp(a, b) >= 0; });
+
+var _Utils_compare = F2(function(x, y)
+{
+	var n = _Utils_cmp(x, y);
+	return n < 0 ? elm$core$Basics$LT : n ? elm$core$Basics$GT : elm$core$Basics$EQ;
+});
+
+
+// COMMON VALUES
+
+var _Utils_Tuple0_UNUSED = 0;
+var _Utils_Tuple0 = { $: '#0' };
+
+function _Utils_Tuple2_UNUSED(a, b) { return { a: a, b: b }; }
+function _Utils_Tuple2(a, b) { return { $: '#2', a: a, b: b }; }
+
+function _Utils_Tuple3_UNUSED(a, b, c) { return { a: a, b: b, c: c }; }
+function _Utils_Tuple3(a, b, c) { return { $: '#3', a: a, b: b, c: c }; }
+
+function _Utils_chr_UNUSED(c) { return c; }
+function _Utils_chr(c) { return new String(c); }
+
+
+// RECORDS
+
+function _Utils_update(oldRecord, updatedFields)
+{
+	var newRecord = {};
+
+	for (var key in oldRecord)
+	{
+		newRecord[key] = oldRecord[key];
+	}
+
+	for (var key in updatedFields)
+	{
+		newRecord[key] = updatedFields[key];
+	}
+
+	return newRecord;
+}
+
+
+// APPEND
+
+var _Utils_append = F2(_Utils_ap);
+
+function _Utils_ap(xs, ys)
+{
+	// append Strings
+	if (typeof xs === 'string')
+	{
+		return xs + ys;
+	}
+
+	// append Lists
+	if (!xs.b)
+	{
+		return ys;
+	}
+	var root = _List_Cons(xs.a, ys);
+	xs = xs.b
+	for (var curr = root; xs.b; xs = xs.b) // WHILE_CONS
+	{
+		curr = curr.b = _List_Cons(xs.a, ys);
+	}
+	return root;
+}
+
+
+
 var _JsArray_empty = [];
 
 function _JsArray_singleton(value)
@@ -228,87 +493,6 @@ var _JsArray_appendN = F3(function(n, dest, source)
     }
 
     return result;
-});
-
-
-
-var _List_Nil_UNUSED = { $: 0 };
-var _List_Nil = { $: '[]' };
-
-function _List_Cons_UNUSED(hd, tl) { return { $: 1, a: hd, b: tl }; }
-function _List_Cons(hd, tl) { return { $: '::', a: hd, b: tl }; }
-
-
-var _List_cons = F2(_List_Cons);
-
-function _List_fromArray(arr)
-{
-	var out = _List_Nil;
-	for (var i = arr.length; i--; )
-	{
-		out = _List_Cons(arr[i], out);
-	}
-	return out;
-}
-
-function _List_toArray(xs)
-{
-	for (var out = []; xs.b; xs = xs.b) // WHILE_CONS
-	{
-		out.push(xs.a);
-	}
-	return out;
-}
-
-var _List_map2 = F3(function(f, xs, ys)
-{
-	for (var arr = []; xs.b && ys.b; xs = xs.b, ys = ys.b) // WHILE_CONSES
-	{
-		arr.push(A2(f, xs.a, ys.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_map3 = F4(function(f, xs, ys, zs)
-{
-	for (var arr = []; xs.b && ys.b && zs.b; xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
-	{
-		arr.push(A3(f, xs.a, ys.a, zs.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_map4 = F5(function(f, ws, xs, ys, zs)
-{
-	for (var arr = []; ws.b && xs.b && ys.b && zs.b; ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
-	{
-		arr.push(A4(f, ws.a, xs.a, ys.a, zs.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_map5 = F6(function(f, vs, ws, xs, ys, zs)
-{
-	for (var arr = []; vs.b && ws.b && xs.b && ys.b && zs.b; vs = vs.b, ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
-	{
-		arr.push(A5(f, vs.a, ws.a, xs.a, ys.a, zs.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_sortBy = F2(function(f, xs)
-{
-	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
-		return _Utils_cmp(f(a), f(b));
-	}));
-});
-
-var _List_sortWith = F2(function(f, xs)
-{
-	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
-		var ord = A2(f, a, b);
-		return ord === elm$core$Basics$EQ ? 0 : ord === elm$core$Basics$LT ? -1 : 1;
-	}));
 });
 
 
@@ -605,190 +789,6 @@ function _Debug_regionToString(region)
 		return 'on line ' + region.start.line;
 	}
 	return 'on lines ' + region.start.line + ' through ' + region.end.line;
-}
-
-
-
-// EQUALITY
-
-function _Utils_eq(x, y)
-{
-	for (
-		var pair, stack = [], isEqual = _Utils_eqHelp(x, y, 0, stack);
-		isEqual && (pair = stack.pop());
-		isEqual = _Utils_eqHelp(pair.a, pair.b, 0, stack)
-		)
-	{}
-
-	return isEqual;
-}
-
-function _Utils_eqHelp(x, y, depth, stack)
-{
-	if (depth > 100)
-	{
-		stack.push(_Utils_Tuple2(x,y));
-		return true;
-	}
-
-	if (x === y)
-	{
-		return true;
-	}
-
-	if (typeof x !== 'object' || x === null || y === null)
-	{
-		typeof x === 'function' && _Debug_crash(5);
-		return false;
-	}
-
-	/**/
-	if (x.$ === 'Set_elm_builtin')
-	{
-		x = elm$core$Set$toList(x);
-		y = elm$core$Set$toList(y);
-	}
-	if (x.$ === 'RBNode_elm_builtin' || x.$ === 'RBEmpty_elm_builtin')
-	{
-		x = elm$core$Dict$toList(x);
-		y = elm$core$Dict$toList(y);
-	}
-	//*/
-
-	/**_UNUSED/
-	if (x.$ < 0)
-	{
-		x = elm$core$Dict$toList(x);
-		y = elm$core$Dict$toList(y);
-	}
-	//*/
-
-	for (var key in x)
-	{
-		if (!_Utils_eqHelp(x[key], y[key], depth + 1, stack))
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-var _Utils_equal = F2(_Utils_eq);
-var _Utils_notEqual = F2(function(a, b) { return !_Utils_eq(a,b); });
-
-
-
-// COMPARISONS
-
-// Code in Generate/JavaScript.hs, Basics.js, and List.js depends on
-// the particular integer values assigned to LT, EQ, and GT.
-
-function _Utils_cmp(x, y, ord)
-{
-	if (typeof x !== 'object')
-	{
-		return x === y ? /*EQ*/ 0 : x < y ? /*LT*/ -1 : /*GT*/ 1;
-	}
-
-	/**/
-	if (x instanceof String)
-	{
-		var a = x.valueOf();
-		var b = y.valueOf();
-		return a === b ? 0 : a < b ? -1 : 1;
-	}
-	//*/
-
-	/**_UNUSED/
-	if (typeof x.$ === 'undefined')
-	//*/
-	/**/
-	if (x.$[0] === '#')
-	//*/
-	{
-		return (ord = _Utils_cmp(x.a, y.a))
-			? ord
-			: (ord = _Utils_cmp(x.b, y.b))
-				? ord
-				: _Utils_cmp(x.c, y.c);
-	}
-
-	// traverse conses until end of a list or a mismatch
-	for (; x.b && y.b && !(ord = _Utils_cmp(x.a, y.a)); x = x.b, y = y.b) {} // WHILE_CONSES
-	return ord || (x.b ? /*GT*/ 1 : y.b ? /*LT*/ -1 : /*EQ*/ 0);
-}
-
-var _Utils_lt = F2(function(a, b) { return _Utils_cmp(a, b) < 0; });
-var _Utils_le = F2(function(a, b) { return _Utils_cmp(a, b) < 1; });
-var _Utils_gt = F2(function(a, b) { return _Utils_cmp(a, b) > 0; });
-var _Utils_ge = F2(function(a, b) { return _Utils_cmp(a, b) >= 0; });
-
-var _Utils_compare = F2(function(x, y)
-{
-	var n = _Utils_cmp(x, y);
-	return n < 0 ? elm$core$Basics$LT : n ? elm$core$Basics$GT : elm$core$Basics$EQ;
-});
-
-
-// COMMON VALUES
-
-var _Utils_Tuple0_UNUSED = 0;
-var _Utils_Tuple0 = { $: '#0' };
-
-function _Utils_Tuple2_UNUSED(a, b) { return { a: a, b: b }; }
-function _Utils_Tuple2(a, b) { return { $: '#2', a: a, b: b }; }
-
-function _Utils_Tuple3_UNUSED(a, b, c) { return { a: a, b: b, c: c }; }
-function _Utils_Tuple3(a, b, c) { return { $: '#3', a: a, b: b, c: c }; }
-
-function _Utils_chr_UNUSED(c) { return c; }
-function _Utils_chr(c) { return new String(c); }
-
-
-// RECORDS
-
-function _Utils_update(oldRecord, updatedFields)
-{
-	var newRecord = {};
-
-	for (var key in oldRecord)
-	{
-		newRecord[key] = oldRecord[key];
-	}
-
-	for (var key in updatedFields)
-	{
-		newRecord[key] = updatedFields[key];
-	}
-
-	return newRecord;
-}
-
-
-// APPEND
-
-var _Utils_append = F2(_Utils_ap);
-
-function _Utils_ap(xs, ys)
-{
-	// append Strings
-	if (typeof xs === 'string')
-	{
-		return xs + ys;
-	}
-
-	// append Lists
-	if (!xs.b)
-	{
-		return ys;
-	}
-	var root = _List_Cons(xs.a, ys);
-	xs = xs.b
-	for (var curr = root; xs.b; xs = xs.b) // WHILE_CONS
-	{
-		curr = curr.b = _List_Cons(xs.a, ys);
-	}
-	return root;
 }
 
 
@@ -4310,38 +4310,13 @@ function _Browser_load(url)
 		}
 	}));
 }
-var elm$core$Basics$apL = F2(
-	function (f, x) {
-		return f(x);
-	});
-var elm$core$Elm$JsArray$foldr = _JsArray_foldr;
-var elm$core$Array$foldr = F3(
-	function (func, baseCase, _n0) {
-		var tree = _n0.c;
-		var tail = _n0.d;
-		var helper = F2(
-			function (node, acc) {
-				if (node.$ === 'SubTree') {
-					var subTree = node.a;
-					return A3(elm$core$Elm$JsArray$foldr, helper, acc, subTree);
-				} else {
-					var values = node.a;
-					return A3(elm$core$Elm$JsArray$foldr, func, acc, values);
-				}
-			});
-		return A3(
-			elm$core$Elm$JsArray$foldr,
-			helper,
-			A3(elm$core$Elm$JsArray$foldr, func, baseCase, tail),
-			tree);
-	});
-var elm$core$Basics$EQ = {$: 'EQ'};
-var elm$core$Basics$LT = {$: 'LT'};
-var elm$core$List$cons = _List_cons;
-var elm$core$Array$toList = function (array) {
-	return A3(elm$core$Array$foldr, elm$core$List$cons, _List_Nil, array);
+var author$project$AppTypes$DisplayCard = function (a) {
+	return {$: 'DisplayCard', a: a};
 };
+var author$project$AppTypes$FlipCard = {$: 'FlipCard'};
+var elm$core$Basics$EQ = {$: 'EQ'};
 var elm$core$Basics$GT = {$: 'GT'};
+var elm$core$Basics$LT = {$: 'LT'};
 var elm$core$Dict$foldr = F3(
 	function (func, acc, t) {
 		foldr:
@@ -4367,6 +4342,7 @@ var elm$core$Dict$foldr = F3(
 			}
 		}
 	});
+var elm$core$List$cons = _List_cons;
 var elm$core$Dict$toList = function (dict) {
 	return A3(
 		elm$core$Dict$foldr,
@@ -4394,58 +4370,37 @@ var elm$core$Set$toList = function (_n0) {
 	var dict = _n0.a;
 	return elm$core$Dict$keys(dict);
 };
-var elm$core$Basics$lt = _Utils_lt;
-var elm$core$Basics$le = _Utils_le;
-var elm$core$Basics$sub = _Basics_sub;
-var elm$core$List$drop = F2(
-	function (n, list) {
-		drop:
-		while (true) {
-			if (n <= 0) {
-				return list;
-			} else {
-				if (!list.b) {
-					return list;
+var elm$core$Elm$JsArray$foldr = _JsArray_foldr;
+var elm$core$Array$foldr = F3(
+	function (func, baseCase, _n0) {
+		var tree = _n0.c;
+		var tail = _n0.d;
+		var helper = F2(
+			function (node, acc) {
+				if (node.$ === 'SubTree') {
+					var subTree = node.a;
+					return A3(elm$core$Elm$JsArray$foldr, helper, acc, subTree);
 				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs;
-					n = $temp$n;
-					list = $temp$list;
-					continue drop;
+					var values = node.a;
+					return A3(elm$core$Elm$JsArray$foldr, func, acc, values);
 				}
-			}
-		}
+			});
+		return A3(
+			elm$core$Elm$JsArray$foldr,
+			helper,
+			A3(elm$core$Elm$JsArray$foldr, func, baseCase, tail),
+			tree);
 	});
-var elm$core$Maybe$Just = function (a) {
-	return {$: 'Just', a: a};
+var elm$core$Array$toList = function (array) {
+	return A3(elm$core$Array$foldr, elm$core$List$cons, _List_Nil, array);
 };
-var elm$core$Maybe$Nothing = {$: 'Nothing'};
-var elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return elm$core$Maybe$Just(x);
-	} else {
-		return elm$core$Maybe$Nothing;
-	}
-};
-var elm_community$list_extra$List$Extra$getAt = F2(
-	function (idx, xs) {
-		return (idx < 0) ? elm$core$Maybe$Nothing : elm$core$List$head(
-			A2(elm$core$List$drop, idx, xs));
-	});
-var author$project$MainView$getDeck = F2(
-	function (decks, deckId) {
-		return A2(elm_community$list_extra$List$Extra$getAt, deckId, decks);
-	});
-var author$project$AppTypes$DisplayCard = function (a) {
-	return {$: 'DisplayCard', a: a};
-};
-var author$project$AppTypes$FlipCard = {$: 'FlipCard'};
 var elm$core$Basics$add = _Basics_add;
+var elm$core$Basics$apL = F2(
+	function (f, x) {
+		return f(x);
+	});
 var elm$core$Basics$eq = _Utils_equal;
+var elm$core$Basics$sub = _Basics_sub;
 var elm$core$List$foldl = F3(
 	function (func, acc, list) {
 		foldl:
@@ -4476,6 +4431,7 @@ var elm$core$List$length = function (xs) {
 		xs);
 };
 var elm$core$List$map2 = _List_map2;
+var elm$core$Basics$le = _Utils_le;
 var elm$core$List$rangeHelp = F3(
 	function (lo, hi, list) {
 		rangeHelp:
@@ -4508,6 +4464,10 @@ var elm$core$List$indexedMap = F2(
 				elm$core$List$length(xs) - 1),
 			xs);
 	});
+var elm$core$Maybe$Just = function (a) {
+	return {$: 'Just', a: a};
+};
+var elm$core$Maybe$Nothing = {$: 'Nothing'};
 var elm$core$String$fromInt = _String_fromNumber;
 var elm$core$Basics$identity = function (x) {
 	return x;
@@ -4625,6 +4585,7 @@ var elm$core$Array$builderToArray = F2(
 		}
 	});
 var elm$core$Basics$idiv = _Basics_idiv;
+var elm$core$Basics$lt = _Utils_lt;
 var elm$core$Elm$JsArray$initialize = _JsArray_initialize;
 var elm$core$Array$initializeHelp = F5(
 	function (fn, fromIndex, len, nodeList, tail) {
@@ -4879,6 +4840,41 @@ var elm$html$Html$Events$onClick = function (msg) {
 		'click',
 		elm$json$Json$Decode$succeed(msg));
 };
+var elm$core$List$drop = F2(
+	function (n, list) {
+		drop:
+		while (true) {
+			if (n <= 0) {
+				return list;
+			} else {
+				if (!list.b) {
+					return list;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs;
+					n = $temp$n;
+					list = $temp$list;
+					continue drop;
+				}
+			}
+		}
+	});
+var elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return elm$core$Maybe$Just(x);
+	} else {
+		return elm$core$Maybe$Nothing;
+	}
+};
+var elm_community$list_extra$List$Extra$getAt = F2(
+	function (idx, xs) {
+		return (idx < 0) ? elm$core$Maybe$Nothing : elm$core$List$head(
+			A2(elm$core$List$drop, idx, xs));
+	});
 var author$project$MainView$renderDeck = F3(
 	function (deck, activeCardId, cardFrontActive) {
 		var displayText = function (card) {
@@ -5030,7 +5026,7 @@ var author$project$MainView$renderDecks = F4(
 		if (deckId < 0) {
 			return author$project$MainView$renderDeckList(decks);
 		} else {
-			var _n0 = A2(author$project$MainView$getDeck, decks, deckId);
+			var _n0 = A2(elm_community$list_extra$List$Extra$getAt, deckId, decks);
 			if (_n0.$ === 'Just') {
 				var activeDeck = _n0.a;
 				return A3(author$project$MainView$renderDeck, activeDeck, cardId, cardFrontActive);
@@ -5107,34 +5103,131 @@ var author$project$AppTypes$Deck = F2(
 	function (name, cards) {
 		return {cards: cards, name: name};
 	});
-var author$project$State$learningDeck = A2(
-	author$project$AppTypes$Deck,
-	'Learning Deck 1',
-	_List_fromArray(
-		[
-			A3(author$project$AppTypes$Card, 'die Nutzern', 'The users', false),
-			A3(author$project$AppTypes$Card, 'Bestätigung', 'Confirmation', false)
-		]));
-var author$project$State$verbDeck = A2(
-	author$project$AppTypes$Deck,
-	'Commonly used verbs',
-	_List_fromArray(
-		[
-			A3(author$project$AppTypes$Card, 'langern', 'To extend', false),
-			A3(author$project$AppTypes$Card, 'wollen', 'To want', false),
-			A3(author$project$AppTypes$Card, 'wollen', 'To want', false)
-		]));
+var author$project$Decks$availableDecks = _List_fromArray(
+	[
+		A2(
+		author$project$AppTypes$Deck,
+		'Learning Deck 1',
+		_List_fromArray(
+			[
+				A3(author$project$AppTypes$Card, 'die Nutzern', 'The users', false),
+				A3(author$project$AppTypes$Card, 'Bestätigung', 'Confirmation', false)
+			])),
+		A2(
+		author$project$AppTypes$Deck,
+		'Commonly used verbs',
+		_List_fromArray(
+			[
+				A3(author$project$AppTypes$Card, 'langern', 'To extend', false),
+				A3(author$project$AppTypes$Card, 'wollen', 'To want', false),
+				A3(author$project$AppTypes$Card, 'wollen', 'To want', false)
+			])),
+		A2(
+		author$project$AppTypes$Deck,
+		'Dictionary Deck 1',
+		_List_fromArray(
+			[
+				A3(author$project$AppTypes$Card, 'verwelkte Blumen', 'faded flowers', false),
+				A3(author$project$AppTypes$Card, 'verwirklichen', 'realize', false),
+				A3(author$project$AppTypes$Card, 'verwirren', 'puzzle', false),
+				A3(author$project$AppTypes$Card, 'verwöhnen', 'spoil (irr.)', false),
+				A3(author$project$AppTypes$Card, 'verwöhnt', 'spoilt', false),
+				A3(author$project$AppTypes$Card, 'verwöhnte', 'spoilt', false),
+				A3(author$project$AppTypes$Card, 'verwunden', 'wound', false),
+				A3(author$project$AppTypes$Card, 'Verwunderung', 'wonder', false),
+				A3(author$project$AppTypes$Card, 'verwundet', 'wounded', false),
+				A3(author$project$AppTypes$Card, 'verwurzelt', 'rooted', false),
+				A3(author$project$AppTypes$Card, 'Verzeichnis', 'register', false),
+				A3(author$project$AppTypes$Card, 'verzeihen', 'pardon', false),
+				A3(author$project$AppTypes$Card, 'Verzeihung', 'pardon', false),
+				A3(author$project$AppTypes$Card, 'verzichten auf', 'do without', false),
+				A3(author$project$AppTypes$Card, 'verzieh', 'forgave', false),
+				A3(author$project$AppTypes$Card, 'verziehen', 'forgiven', false),
+				A3(author$project$AppTypes$Card, 'verzieren', 'ornament', false),
+				A3(author$project$AppTypes$Card, 'Verzierung', 'ornament', false),
+				A3(author$project$AppTypes$Card, 'verzögern', 'delay', false),
+				A3(author$project$AppTypes$Card, 'Verzögerung', 'delay', false),
+				A3(author$project$AppTypes$Card, 'verzweifeln', 'despair', false),
+				A3(author$project$AppTypes$Card, 'verzweifelt', 'desperate', false),
+				A3(author$project$AppTypes$Card, 'Verzweiflung', 'despair', false),
+				A3(author$project$AppTypes$Card, 'verzweigen', 'branch', false),
+				A3(author$project$AppTypes$Card, 'Vetter', 'cousin', false),
+				A3(author$project$AppTypes$Card, 'Vieh treiben', 'drive (irr.)', false),
+				A3(author$project$AppTypes$Card, 'viel', 'much', false),
+				A3(author$project$AppTypes$Card, 'viel Geld', 'plenty of money', false),
+				A3(author$project$AppTypes$Card, 'Viel Glück !', 'good luck !', false),
+				A3(author$project$AppTypes$Card, 'viel größer', 'much bigger', false),
+				A3(author$project$AppTypes$Card, 'viel mehr', 'much more', false),
+				A3(author$project$AppTypes$Card, 'Viel Vergnügen !', 'have a good time !', false),
+				A3(author$project$AppTypes$Card, 'viel zu essen', 'plenty of food', false),
+				A3(author$project$AppTypes$Card, 'viele', 'many', false),
+				A3(author$project$AppTypes$Card, 'viele Leute', 'many people', false),
+				A3(author$project$AppTypes$Card, 'vielen Dank !', 'thank you very much !', false),
+				A3(author$project$AppTypes$Card, 'vielleicht', 'perhaps', false),
+				A3(author$project$AppTypes$Card, 'vier', 'four', false),
+				A3(author$project$AppTypes$Card, 'vierte', 'fourth', false),
+				A3(author$project$AppTypes$Card, 'Viertel', 'quarter', false),
+				A3(author$project$AppTypes$Card, 'Viertel nach', 'a quarter past', false),
+				A3(author$project$AppTypes$Card, 'Viertel vor', 'a quarter to', false),
+				A3(author$project$AppTypes$Card, 'vierteljährlich', 'quarterly', false),
+				A3(author$project$AppTypes$Card, 'Viertelstunde', 'quarter', false),
+				A3(author$project$AppTypes$Card, 'vierzehn', 'fourteen', false),
+				A3(author$project$AppTypes$Card, 'vierzehn Tage', 'fortnight', false),
+				A3(author$project$AppTypes$Card, 'vierzehnte', 'fourteenth', false),
+				A3(author$project$AppTypes$Card, 'vierzig', 'forty', false),
+				A3(author$project$AppTypes$Card, 'vierzigste', 'fortieth', false),
+				A3(author$project$AppTypes$Card, 'Violine', 'violin', false),
+				A3(author$project$AppTypes$Card, 'Vogel', 'bird', false),
+				A3(author$project$AppTypes$Card, 'Vogelfeder', 'feather', false),
+				A3(author$project$AppTypes$Card, 'Volk', 'people', false),
+				A3(author$project$AppTypes$Card, 'volkommen machen', 'perfect', false),
+				A3(author$project$AppTypes$Card, 'Volksstamm', 'tribe', false),
+				A3(author$project$AppTypes$Card, 'voll', 'full', false),
+				A3(author$project$AppTypes$Card, 'voll Respekt', 'respectful', false),
+				A3(author$project$AppTypes$Card, 'voll Sorge', 'sorrowful', false),
+				A3(author$project$AppTypes$Card, 'völlig', 'entire', false),
+				A3(author$project$AppTypes$Card, 'vollkommen', 'perfect', false),
+				A3(author$project$AppTypes$Card, 'vollkommenes Glück', 'entire happiness', false),
+				A3(author$project$AppTypes$Card, 'Vollkommenheit', 'perfection', false),
+				A3(author$project$AppTypes$Card, 'vollständig', 'complete', false),
+				A3(author$project$AppTypes$Card, 'Volumen', 'volume', false),
+				A3(author$project$AppTypes$Card, 'vom Boden aufheben', 'pick up', false),
+				A3(author$project$AppTypes$Card, 'vom Geschäft reden', 'talk business', false),
+				A3(author$project$AppTypes$Card, 'von', 'of', false),
+				A3(author$project$AppTypes$Card, 'von (... her)', 'from', false),
+				A3(author$project$AppTypes$Card, 'von ... bis', 'from ... to', false),
+				A3(author$project$AppTypes$Card, 'von einem Konto abheben', 'draw from an account', false),
+				A3(author$project$AppTypes$Card, 'von etwas abhängen', 'depend on something', false),
+				A3(author$project$AppTypes$Card, 'von etwas reden', 'talk about something', false),
+				A3(author$project$AppTypes$Card, 'von fester Beschaffenheit', 'solid', false),
+				A3(author$project$AppTypes$Card, 'von Geburt an', 'by birth', false),
+				A3(author$project$AppTypes$Card, 'von oben bis unten', 'from top to bottom', false),
+				A3(author$project$AppTypes$Card, 'von Shakespeare', 'by Shakespeare', false),
+				A3(author$project$AppTypes$Card, 'von Würmern gefressen', 'worm-eaten', false),
+				A3(author$project$AppTypes$Card, 'voneinander abhängig', 'interdependent', false),
+				A3(author$project$AppTypes$Card, 'vor', 'before', false),
+				A3(author$project$AppTypes$Card, 'vor 1980', 'before 1980', false),
+				A3(author$project$AppTypes$Card, 'vor allem', 'most of all', false),
+				A3(author$project$AppTypes$Card, 'vor dem Gebäude', 'in front of the building', false),
+				A3(author$project$AppTypes$Card, 'vor kurzem', 'recently', false),
+				A3(author$project$AppTypes$Card, 'vor langer Zeit', 'a long time ago', false),
+				A3(author$project$AppTypes$Card, 'vor zwei Tage', 'two days ago', false),
+				A3(author$project$AppTypes$Card, 'voran gehen', 'go ahead', false),
+				A3(author$project$AppTypes$Card, 'voraus', 'ahead', false),
+				A3(author$project$AppTypes$Card, 'vorbei an', 'by', false),
+				A3(author$project$AppTypes$Card, 'vorbeifahren', 'pass by', false),
+				A3(author$project$AppTypes$Card, 'vorbeigehen', 'pass', false),
+				A3(author$project$AppTypes$Card, 'vorbereiten', 'prepare', false),
+				A3(author$project$AppTypes$Card, 'Vorbereitung', 'preparation', false),
+				A3(author$project$AppTypes$Card, 'Vorbild', 'model', false),
+				A3(author$project$AppTypes$Card, 'Vorderside', 'front', false)
+			]))
+	]);
 var elm$core$Platform$Cmd$batch = _Platform_batch;
 var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var author$project$State$init = function (_n0) {
 	return _Utils_Tuple2(
-		A4(
-			author$project$AppTypes$Model,
-			_List_fromArray(
-				[author$project$State$learningDeck, author$project$State$verbDeck]),
-			0,
-			0,
-			true),
+		A4(author$project$AppTypes$Model, author$project$Decks$availableDecks, 0, 0, true),
 		elm$core$Platform$Cmd$none);
 };
 var elm$core$Platform$Sub$batch = _Platform_batch;

@@ -1,26 +1,12 @@
 module State exposing (init, subscriptions, update)
 
 import AppTypes exposing (..)
-
-
-learningDeck =
-    Deck "Learning Deck 1"
-        [ Card "die Nutzern" "The users" False
-        , Card "Bestätigung" "Confirmation" False
-        ]
-
-
-verbDeck =
-    Deck "Commonly used verbs"
-        [ Card "langern" "To extend" False
-        , Card "wollen" "To want" False
-        , Card "wollen" "To want" False
-        ]
+import Decks exposing (..)
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model [ learningDeck, verbDeck ] 0 0 True
+    ( Model availableDecks 0 0 True
     , Cmd.none
     )
 
