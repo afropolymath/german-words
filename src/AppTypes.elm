@@ -13,7 +13,7 @@ type alias Deck =
 
 
 type alias Model =
-    { decks : List Deck, activeDeckId : Int, activeCardId : Int, cardFrontActive : Bool }
+    { decks : List Deck, activeDeckId : Int, activeCardId : Int, cardIsFlipped : Bool }
 
 
 type Msg

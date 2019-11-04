@@ -4,6 +4,7 @@ import AppTypes exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Json.Decode as Json
 import List.Extra exposing (..)
 import String exposing (join)
 
@@ -17,8 +18,18 @@ import String exposing (join)
 -}
 
 
+alwaysStop : a -> ( a, Bool )
+alwaysStop x =
+    ( x, True )
+
+
+stopPropagationOnClick : msg -> Attribute msg
+stopPropagationOnClick msg =
+    stopPropagationOn "click" (Json.map alwaysStop (Json.succeed msg))
+
+
 renderDeck : Deck -> Int -> Bool -> Html Msg
-renderDeck deck activeCardId cardFrontActive =
+renderDeck deck activeCardId cardIsFlipped =
     let
         displayNextCard =
             if activeCardId == List.length deck.cards - 1 then
@@ -35,18 +46,18 @@ renderDeck deck activeCardId cardFrontActive =
                 DisplayCard (activeCardId - 1)
 
         displayText card =
-            if cardFrontActive then
-                card.front
+            if cardIsFlipped then
+                card.back
 
             else
-                card.back
+                card.front
 
         activeCard =
             case getAt activeCardId deck.cards of
                 Just card ->
                     div [ class "active-card", onClick FlipCard ]
-                        [ Html.span [ class "control-left", onClick displayPreviousCard ] []
-                        , Html.span [ class "control-right", onClick displayNextCard ] []
+                        [ Html.span [ class "control-left", stopPropagationOnClick displayPreviousCard ] []
+                        , Html.span [ class "control-right", stopPropagationOnClick displayNextCard ] []
                         , h1 [ class "card-text" ] [ text (displayText card) ]
                         ]
 
@@ -54,12 +65,18 @@ renderDeck deck activeCardId cardFrontActive =
                     div [] [ text "Could not find that card" ]
 
         deckCardNavItem cardIndex card =
-            li [] [ text (String.fromInt (cardIndex + 1)) ]
+            li
+                [ classList
+                    [ ( "active", cardIndex == activeCardId )
+                    ]
+                , onClick (DisplayCard cardIndex)
+                ]
+                []
     in
     div [ class "deck" ]
         [ activeCard
-        , ul [ class "deck-card-navigation" ] <|
-            List.indexedMap deckCardNavItem deck.cards
+        , List.indexedMap deckCardNavItem deck.cards
+            |> ul [ class "deck-card-navigation" ]
         ]
 
 
@@ -93,14 +110,14 @@ renderDeckList decks =
 
 
 renderDecks : List Deck -> Int -> Int -> Bool -> Html Msg
-renderDecks decks deckId cardId cardFrontActive =
+renderDecks decks deckId cardId cardIsFlipped =
     if deckId < 0 then
         renderDeckList decks
 
     else
         case getAt deckId decks of
             Just activeDeck ->
-                renderDeck activeDeck cardId cardFrontActive
+                renderDeck activeDeck cardId cardIsFlipped
 
             Nothing ->
                 renderDeckList decks
@@ -116,7 +133,7 @@ view model =
             ]
         , section [ class "main" ]
             [ div [ class "container" ]
-                [ renderDecks model.decks model.activeDeckId model.activeCardId model.cardFrontActive
+                [ renderDecks model.decks model.activeDeckId model.activeCardId model.cardIsFlipped
                 ]
             ]
         ]

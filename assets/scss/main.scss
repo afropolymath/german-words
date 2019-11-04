@@ -1,4 +1,5 @@
 $deck-list-item-border-color: #dedede;
+$active-green: #40af00;
 
 body {
   font: normal 14px/22px "Noto Sans TC", Arial, Helvetica, sans-serif;
@@ -124,6 +125,8 @@ section.main {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  cursor: pointer;
+  user-select: none;
 
   h1 {
     font-size: 2.3em;
@@ -171,14 +174,23 @@ section.main {
   padding: 0;
   margin: 0;
   list-style: none;
-  margin-top: 10px;
+  margin-top: 20px;
 
   li {
     display: inline-block;
-    border: solid 1px $deck-list-item-border-color;
-    border-radius: 4px;
-    padding: 4px 10px;
+    background: #dedede;
+    border-radius: 20px;
+    width: 10px;
+    height: 10px;
     margin-right: 5px;
+    margin-bottom: 5px;
     font-size: 0.85em;
+    cursor: pointer;
+
+    &.active {
+      background-color: $active-green;
+      color: white;
+      font-weight: 700;
+    }
   }
 }

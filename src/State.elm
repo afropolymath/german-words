@@ -6,7 +6,7 @@ import Decks exposing (..)
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model availableDecks 0 0 True
+    ( Model availableDecks 2 0 False
     , Cmd.none
     )
 
@@ -21,10 +21,10 @@ update msg model =
             ( { model | activeDeckId = deckIndex, activeCardId = 0 }, Cmd.none )
 
         DisplayCard cardIndex ->
-            ( { model | activeCardId = cardIndex, cardFrontActive = False }, Cmd.none )
+            ( { model | activeCardId = cardIndex, cardIsFlipped = False }, Cmd.none )
 
         FlipCard ->
-            ( { model | cardFrontActive = not model.cardFrontActive }, Cmd.none )
+            ( { model | cardIsFlipped = not model.cardIsFlipped }, Cmd.none )
 
         MarkCardAsLearnt ->
             let
