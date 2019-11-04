@@ -11,6 +11,30 @@ init _ =
     )
 
 
+markCardAsLearnt activeCardId cardIterIndex card =
+    if cardIterIndex == activeCardId then
+        { card | learnt = True }
+
+    else
+        card
+
+
+toggleLearnt activeCardId cardIterIndex card =
+    if cardIterIndex == activeCardId then
+        { card | learnt = not card.learnt }
+
+    else
+        card
+
+
+updateDeck activeDeckId func deckIterIndex deck =
+    if deckIterIndex == activeDeckId then
+        { deck | cards = List.indexedMap func deck.cards }
+
+    else
+        deck
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -26,23 +50,11 @@ update msg model =
         FlipCard ->
             ( { model | cardIsFlipped = not model.cardIsFlipped }, Cmd.none )
 
+        ToggleLearnt ->
+            ( { model | decks = List.indexedMap (updateDeck model.activeDeckId (toggleLearnt model.activeCardId)) model.decks }, Cmd.none )
+
         MarkCardAsLearnt ->
-            let
-                updateCardStatus cardIterIndex card =
-                    if cardIterIndex == model.activeCardId then
-                        { card | learnt = True }
-
-                    else
-                        card
-
-                updateDeck deckIterIndex deck =
-                    if deckIterIndex == model.activeDeckId then
-                        { deck | cards = List.indexedMap updateCardStatus deck.cards }
-
-                    else
-                        deck
-            in
-            ( { model | decks = List.indexedMap updateDeck model.decks }, Cmd.none )
+            ( { model | decks = List.indexedMap (updateDeck model.activeDeckId (markCardAsLearnt model.activeCardId)) model.decks }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg

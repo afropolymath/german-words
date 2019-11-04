@@ -22,3 +22,4 @@ type Msg
     | DisplayCard Int
     | FlipCard
     | MarkCardAsLearnt
+    | ToggleLearnt

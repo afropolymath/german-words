@@ -55,10 +55,27 @@ renderDeck deck activeCardId cardIsFlipped =
         activeCard =
             case getAt activeCardId deck.cards of
                 Just card ->
-                    div [ class "active-card", onClick FlipCard ]
+                    div
+                        [ class "active-card"
+                        , onClick FlipCard
+                        , classList
+                            [ ( "is-learnt", card.learnt )
+                            ]
+                        ]
                         [ Html.span [ class "control-left", stopPropagationOnClick displayPreviousCard ] []
                         , Html.span [ class "control-right", stopPropagationOnClick displayNextCard ] []
                         , h1 [ class "card-text" ] [ text (displayText card) ]
+                        , Html.span [ class "mark-learnt", stopPropagationOnClick ToggleLearnt ]
+                            [ i [ class "material-icons" ]
+                                [ text
+                                    (if card.learnt then
+                                        "undo"
+
+                                     else
+                                        "check"
+                                    )
+                                ]
+                            ]
                         ]
 
                 Nothing ->
@@ -68,13 +85,18 @@ renderDeck deck activeCardId cardIsFlipped =
             li
                 [ classList
                     [ ( "active", cardIndex == activeCardId )
+                    , ( "learnt", card.learnt )
                     ]
                 , onClick (DisplayCard cardIndex)
                 ]
                 []
     in
     div [ class "deck" ]
-        [ activeCard
+        [ ul [ class "breadcrumb-nav" ]
+            [ li [ class "active", onClick DisplayDeckList ] [ text "All Decks" ]
+            , li [] [ text deck.name ]
+            ]
+        , activeCard
         , List.indexedMap deckCardNavItem deck.cards
             |> ul [ class "deck-card-navigation" ]
         ]
@@ -87,8 +109,11 @@ renderDeck deck activeCardId cardIsFlipped =
 renderDeckListItem : Int -> Deck -> Html Msg
 renderDeckListItem deckId deck =
     let
+        learntCount =
+            List.length (List.filter (\card -> card.learnt) deck.cards)
+
         learntCards =
-            join " " [ "0 out of ", String.fromInt (List.length deck.cards), "cards learnt" ]
+            join " " [ String.fromInt learntCount, "out of", String.fromInt (List.length deck.cards), "cards learnt" ]
     in
     div [ class "deck-list-item", onClick (DisplayDeck deckId) ]
         [ p [ class "deck-name" ] [ text deck.name ]

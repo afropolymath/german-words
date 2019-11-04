@@ -4313,7 +4313,9 @@ function _Browser_load(url)
 var author$project$AppTypes$DisplayCard = function (a) {
 	return {$: 'DisplayCard', a: a};
 };
+var author$project$AppTypes$DisplayDeckList = {$: 'DisplayDeckList'};
 var author$project$AppTypes$FlipCard = {$: 'FlipCard'};
+var author$project$AppTypes$ToggleLearnt = {$: 'ToggleLearnt'};
 var elm$core$Basics$True = {$: 'True'};
 var elm$core$Elm$JsArray$foldr = _JsArray_foldr;
 var elm$core$Array$foldr = F3(
@@ -4832,6 +4834,7 @@ var author$project$MainView$stopPropagationOnClick = function (msg) {
 };
 var elm$html$Html$div = _VirtualDom_node('div');
 var elm$html$Html$h1 = _VirtualDom_node('h1');
+var elm$html$Html$i = _VirtualDom_node('i');
 var elm$html$Html$li = _VirtualDom_node('li');
 var elm$html$Html$span = _VirtualDom_node('span');
 var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
@@ -5011,7 +5014,8 @@ var author$project$MainView$renderDeck = F3(
 								[
 									_Utils_Tuple2(
 									'active',
-									_Utils_eq(cardIndex, activeCardId))
+									_Utils_eq(cardIndex, activeCardId)),
+									_Utils_Tuple2('learnt', card.learnt)
 								])),
 							elm$html$Html$Events$onClick(
 							author$project$AppTypes$DisplayCard(cardIndex))
@@ -5027,7 +5031,12 @@ var author$project$MainView$renderDeck = F3(
 					_List_fromArray(
 						[
 							elm$html$Html$Attributes$class('active-card'),
-							elm$html$Html$Events$onClick(author$project$AppTypes$FlipCard)
+							elm$html$Html$Events$onClick(author$project$AppTypes$FlipCard),
+							elm$html$Html$Attributes$classList(
+							_List_fromArray(
+								[
+									_Utils_Tuple2('is-learnt', card.learnt)
+								]))
 						]),
 					_List_fromArray(
 						[
@@ -5057,6 +5066,27 @@ var author$project$MainView$renderDeck = F3(
 								[
 									elm$html$Html$text(
 									displayText(card))
+								])),
+							A2(
+							elm$html$Html$span,
+							_List_fromArray(
+								[
+									elm$html$Html$Attributes$class('mark-learnt'),
+									author$project$MainView$stopPropagationOnClick(author$project$AppTypes$ToggleLearnt)
+								]),
+							_List_fromArray(
+								[
+									A2(
+									elm$html$Html$i,
+									_List_fromArray(
+										[
+											elm$html$Html$Attributes$class('material-icons')
+										]),
+									_List_fromArray(
+										[
+											elm$html$Html$text(
+											card.learnt ? 'undo' : 'check')
+										]))
 								]))
 						]));
 			} else {
@@ -5077,6 +5107,33 @@ var author$project$MainView$renderDeck = F3(
 				]),
 			_List_fromArray(
 				[
+					A2(
+					elm$html$Html$ul,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$class('breadcrumb-nav')
+						]),
+					_List_fromArray(
+						[
+							A2(
+							elm$html$Html$li,
+							_List_fromArray(
+								[
+									elm$html$Html$Attributes$class('active'),
+									elm$html$Html$Events$onClick(author$project$AppTypes$DisplayDeckList)
+								]),
+							_List_fromArray(
+								[
+									elm$html$Html$text('All Decks')
+								])),
+							A2(
+							elm$html$Html$li,
+							_List_Nil,
+							_List_fromArray(
+								[
+									elm$html$Html$text(deck.name)
+								]))
+						])),
 					activeCard,
 					A2(
 					elm$html$Html$ul,
@@ -5093,12 +5150,20 @@ var author$project$AppTypes$DisplayDeck = function (a) {
 var elm$html$Html$p = _VirtualDom_node('p');
 var author$project$MainView$renderDeckListItem = F2(
 	function (deckId, deck) {
+		var learntCount = elm$core$List$length(
+			A2(
+				elm$core$List$filter,
+				function (card) {
+					return card.learnt;
+				},
+				deck.cards));
 		var learntCards = A2(
 			elm$core$String$join,
 			' ',
 			_List_fromArray(
 				[
-					'0 out of ',
+					elm$core$String$fromInt(learntCount),
+					'out of',
 					elm$core$String$fromInt(
 					elm$core$List$length(deck.cards)),
 					'cards learnt'
@@ -5358,10 +5423,30 @@ var elm$core$Platform$Sub$none = elm$core$Platform$Sub$batch(_List_Nil);
 var author$project$State$subscriptions = function (model) {
 	return elm$core$Platform$Sub$none;
 };
+var author$project$State$markCardAsLearnt = F3(
+	function (activeCardId, cardIterIndex, card) {
+		return _Utils_eq(cardIterIndex, activeCardId) ? _Utils_update(
+			card,
+			{learnt: true}) : card;
+	});
+var elm$core$Basics$not = _Basics_not;
+var author$project$State$toggleLearnt = F3(
+	function (activeCardId, cardIterIndex, card) {
+		return _Utils_eq(cardIterIndex, activeCardId) ? _Utils_update(
+			card,
+			{learnt: !card.learnt}) : card;
+	});
+var author$project$State$updateDeck = F4(
+	function (activeDeckId, func, deckIterIndex, deck) {
+		return _Utils_eq(deckIterIndex, activeDeckId) ? _Utils_update(
+			deck,
+			{
+				cards: A2(elm$core$List$indexedMap, func, deck.cards)
+			}) : deck;
+	});
 var elm$core$Basics$negate = function (n) {
 	return -n;
 };
-var elm$core$Basics$not = _Basics_not;
 var author$project$State$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -5391,26 +5476,32 @@ var author$project$State$update = F2(
 						model,
 						{cardIsFlipped: !model.cardIsFlipped}),
 					elm$core$Platform$Cmd$none);
-			default:
-				var updateCardStatus = F2(
-					function (cardIterIndex, card) {
-						return _Utils_eq(cardIterIndex, model.activeCardId) ? _Utils_update(
-							card,
-							{learnt: true}) : card;
-					});
-				var updateDeck = F2(
-					function (deckIterIndex, deck) {
-						return _Utils_eq(deckIterIndex, model.activeDeckId) ? _Utils_update(
-							deck,
-							{
-								cards: A2(elm$core$List$indexedMap, updateCardStatus, deck.cards)
-							}) : deck;
-					});
+			case 'ToggleLearnt':
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{
-							decks: A2(elm$core$List$indexedMap, updateDeck, model.decks)
+							decks: A2(
+								elm$core$List$indexedMap,
+								A2(
+									author$project$State$updateDeck,
+									model.activeDeckId,
+									author$project$State$toggleLearnt(model.activeCardId)),
+								model.decks)
+						}),
+					elm$core$Platform$Cmd$none);
+			default:
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							decks: A2(
+								elm$core$List$indexedMap,
+								A2(
+									author$project$State$updateDeck,
+									model.activeDeckId,
+									author$project$State$markCardAsLearnt(model.activeCardId)),
+								model.decks)
 						}),
 					elm$core$Platform$Cmd$none);
 		}

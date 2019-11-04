@@ -26,28 +26,35 @@ h1 {
   border-left: $arrow-size solid $color;
 }
 
-@mixin right-chevron($color, $size, $border-thickness: 1px) {
+@mixin right-chevron($color, $size, $border-thickness: 1px, $roundness: 4px) {
   display: block;
   width: $size;
   height: $size;
   border-top: solid $border-thickness $color;
   border-right: solid $border-thickness $color;
   transform: rotate(45deg);
-  border-top-right-radius: 4px;
+  border-top-right-radius: $roundness;
 }
 
-@mixin left-chevron($color, $size, $border-thickness: 1px) {
+@mixin left-chevron($color, $size, $border-thickness: 1px, $roundness: 4px) {
   display: block;
   width: $size;
   height: $size;
   border-top: solid $border-thickness $color;
   border-left: solid $border-thickness $color;
   transform: rotate(-45deg);
-  border-top-left-radius: 4px;
+  border-top-left-radius: $roundness;
+}
+
+@mixin position($top, $right: $top, $bottom: $top, $left: $right) {
+  top: $top;
+  right: $right;
+  bottom: $bottom;
+  left: $left;
 }
 
 section.header {
-  height: 100px;
+  height: 50px;
   padding: 0 20px 20px 20px;
   display: flex;
   align-items: flex-end;
@@ -72,6 +79,7 @@ section.main {
 
 .deck-list {
   display: flex;
+  flex-wrap: wrap;
   align-content: space-around;
 
   .deck-list-item {
@@ -79,11 +87,11 @@ section.main {
     border: solid 1px $deck-list-item-border-color;
     border-radius: 3px;
     flex-grow: 1;
-    max-width: 50%;
+    min-width: 200px;
     padding: 12px 15px;
     margin-right: 10px;
+    margin-bottom: 10px;
     cursor: pointer;
-    transition: all 0.3s;
 
     &::after {
       @include right-chevron(transparent, 14px, 2px);
@@ -127,18 +135,23 @@ section.main {
   overflow: hidden;
   cursor: pointer;
   user-select: none;
+  transition: background 0.4s;
 
   h1 {
     font-size: 2.3em;
     font-weight: 700;
+    transition: all 0.3s;
   }
 
   .control-right,
   .control-left {
+    background: white;
     position: absolute;
     cursor: pointer;
     padding: 15px;
     border: solid 1px $deck-list-item-border-color;
+    box-shadow: 0 2px 6px 0 transparent;
+    transition: all 0.3s;
 
     &:hover {
       box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.13);
@@ -168,6 +181,63 @@ section.main {
       @include right-chevron(grey, 14px);
     }
   }
+
+  .mark-learnt {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    height: 30px;
+    width: 30px;
+    background: $active-green;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 4px 0 transparent;
+    transition: all 0.3s;
+
+    i {
+      font-size: 1em;
+      font-weight: 700;
+      color: white;
+    }
+
+    &:hover {
+      background: darken($active-green, 5%);
+      box-shadow: 0 4px 6px 0 rgba(0, 0, 0, 0.13);
+    }
+
+    &:active {
+      background: darken($active-green, 10%);
+      box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.13);
+    }
+  }
+
+  &.is-learnt {
+    background: $active-green;
+    border-color: $active-green;
+
+    .control-right,
+    .control-left {
+      box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.23);
+
+      &:hover {
+        box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.43);
+      }
+    }
+
+    h1 {
+      color: white;
+    }
+
+    .mark-learnt {
+      background: white;
+
+      i {
+        color: $active-green;
+      }
+    }
+  }
 }
 
 .deck-card-navigation {
@@ -179,6 +249,7 @@ section.main {
   li {
     display: inline-block;
     background: #dedede;
+    box-sizing: border-box;
     border-radius: 20px;
     width: 10px;
     height: 10px;
@@ -186,11 +257,58 @@ section.main {
     margin-bottom: 5px;
     font-size: 0.85em;
     cursor: pointer;
+    transition: background 0.3s;
 
     &.active {
+      border: solid 2px $active-green;
+    }
+
+    &.learnt {
       background-color: $active-green;
-      color: white;
-      font-weight: 700;
+    }
+
+    &.learnt.active {
+      border-color: darken($active-green, 10%);
+    }
+  }
+}
+
+.breadcrumb-nav {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85em;
+  margin-bottom: 15px;
+
+  li {
+    position: relative;
+    display: inline-block;
+    color: #999999;
+
+    &.active {
+      color: #222;
+      cursor: pointer;
+      transition: color 0.3s;
+
+      &:hover {
+        color: rgb(233, 107, 3);
+      }
+    }
+  }
+
+  li + li {
+    margin-left: 30px;
+
+    &::before {
+      content: "";
+      @include right-chevron(grey, 6px, 1px, 0);
+      position: absolute;
+      top: 0;
+      left: -20px;
+      bottom: 0;
+      margin: auto 0;
     }
   }
 }
