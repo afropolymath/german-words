@@ -8,10 +8,10 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "build:scss": "node-sass -r --output-style compressed assets/scss/main.scss -o public/css",
+    "build:scss": "node-sass -r --output-style compressed assets/scss/main.scss -o docs/css",
     "build": "yarn build:scss && make build",
     "dev": "concurrently \"yarn watch:scss\" \"yarn watch:elm\" \"yarn dev:server\"",
-    "dev:server": "reload -b --dir public --watch-dir public",
+    "dev:server": "reload -b --dir docs --watch-dir docs",
     "watch:scss": "yarn build:scss && yarn build:scss -- -w",
     "watch:elm": "chokidar 'src/**/*.elm' -c 'make build' --initial"
   },
