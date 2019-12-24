@@ -5671,7 +5671,7 @@ var author$project$Decks$deckDecoder = A3(
 				'name',
 				elm$json$Json$Decode$string,
 				elm$json$Json$Decode$succeed(author$project$AppTypes$Deck)))));
-var author$project$Decks$url = '/data/decks.json';
+var author$project$Decks$url = 'data/decks.json';
 var elm$core$Result$mapError = F2(
 	function (f, result) {
 		if (result.$ === 'Ok') {
