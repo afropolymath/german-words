@@ -18,7 +18,7 @@ Conjunctions Deck
 -}
 url : String
 url =
-    "/data/decks.json"
+    "data/decks.json"
 
 
 getDecks : Cmd Msg
