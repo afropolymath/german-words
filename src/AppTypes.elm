@@ -1,5 +1,15 @@
 module AppTypes exposing (..)
 
+import RemoteData exposing (WebData)
+
+
+
+{-
+   A Card is a representation of a word that needs to be learnt. A card has a back
+   a front and as part of the model, a boolean indicating whether or not this card
+   has been learnt
+-}
+
 
 type alias Card =
     { front : String
@@ -8,18 +18,33 @@ type alias Card =
     }
 
 
+
+-- A Deck can be defined as a list of cards.
+
+
 type alias Deck =
-    { name : String, cards : List Card }
+    { name : String
+    , slug : String
+    , tags : List String
+    , cards : List Card
+    }
 
 
 type alias Model =
-    { decks : List Deck, activeDeckId : Int, activeCardId : Int, cardIsFlipped : Bool }
+    { applicationTitle : String
+    , applicationDecks : WebData (List Deck)
+    , userDecks : List Deck
+    , activeDeckSlug : Maybe String
+    , activeCardId : Int
+    , cardIsFlipped : Bool
+    }
 
 
 type Msg
     = DisplayDeckList
-    | DisplayDeck Int
+    | DisplayDeck String
     | DisplayCard Int
     | FlipCard
-    | MarkCardAsLearnt
     | ToggleLearnt
+    | GetDecks
+    | DecksReceived (WebData (List Deck))

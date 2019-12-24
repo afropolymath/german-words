@@ -1,83 +1,167 @@
 module State exposing (init, subscriptions, update, updateWithStorage)
 
 import AppTypes exposing (..)
-import Decks exposing (..)
-import Ports exposing (..)
+import Decks exposing (getDecks)
+import Ports exposing (cacheDecks)
+import RemoteData
+import Utils exposing (findBySlug, isDeckInList, replaceBySlug)
 
 
 init : Maybe (List Deck) -> ( Model, Cmd Msg )
 init flags =
     let
-        decks =
+        userDecks =
             case flags of
-                Just cachedDecks ->
-                    cachedDecks
+                Just cachedUserDecks ->
+                    cachedUserDecks
 
                 Nothing ->
-                    availableDecks
+                    []
     in
-    ( Model decks 2 0 False
-    , Cmd.none
+    ( Model "Seré" RemoteData.NotAsked userDecks Nothing -1 False
+    , getDecks
     )
 
 
-markCardAsLearnt activeCardId cardIterIndex card =
-    if cardIterIndex == activeCardId then
-        { card | learnt = True }
-
-    else
-        card
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
 
 
-toggleLearnt activeCardId cardIterIndex card =
-    if cardIterIndex == activeCardId then
-        { card | learnt = not card.learnt }
-
-    else
-        card
-
-
-updateDeck activeDeckId func deckIterIndex deck =
-    if deckIterIndex == activeDeckId then
-        { deck | cards = List.indexedMap func deck.cards }
-
-    else
-        deck
-
-
+updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
 updateWithStorage msg model =
     let
         ( newModel, commands ) =
             update msg model
-
-        decks =
-            newModel.decks
     in
-    ( newModel, Cmd.batch [ commands, cacheDecks decks ] )
+    ( newModel, Cmd.batch [ commands, cacheDecks newModel.userDecks ] )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         DisplayDeckList ->
-            ( { model | activeDeckId = -1, activeCardId = -1 }, Cmd.none )
+            ( reducerDisplayDeckList model, Cmd.none )
 
-        DisplayDeck deckIndex ->
-            ( { model | activeDeckId = deckIndex, activeCardId = 0 }, Cmd.none )
+        DisplayDeck deckSlug ->
+            ( reducerDisplayDeck model deckSlug, Cmd.none )
 
         DisplayCard cardIndex ->
-            ( { model | activeCardId = cardIndex, cardIsFlipped = False }, Cmd.none )
+            ( reducerDisplayCard model cardIndex, Cmd.none )
 
         FlipCard ->
-            ( { model | cardIsFlipped = not model.cardIsFlipped }, Cmd.none )
+            ( reducerFlipCard model, Cmd.none )
 
         ToggleLearnt ->
-            ( { model | decks = List.indexedMap (updateDeck model.activeDeckId (toggleLearnt model.activeCardId)) model.decks }, Cmd.none )
+            ( reducerUpdateDecks model toggleActiveCardLearnt, Cmd.none )
 
-        MarkCardAsLearnt ->
-            ( { model | decks = List.indexedMap (updateDeck model.activeDeckId (markCardAsLearnt model.activeCardId)) model.decks }, Cmd.none )
+        GetDecks ->
+            ( model, getDecks )
+
+        DecksReceived response ->
+            ( reducerUpdateApplicationDecks model response, Cmd.none )
 
 
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.none
+reducerDisplayDeckList : Model -> Model
+reducerDisplayDeckList model =
+    { model | activeDeckSlug = Nothing, activeCardId = -1 }
+
+
+reducerDisplayDeck : Model -> String -> Model
+reducerDisplayDeck model deckSlug =
+    { model | activeDeckSlug = Just deckSlug, activeCardId = 0, userDecks = updatedUserDecks { model | activeDeckSlug = Just deckSlug } True }
+
+
+reducerDisplayCard : Model -> Int -> Model
+reducerDisplayCard model cardIndex =
+    { model | activeCardId = cardIndex, cardIsFlipped = False }
+
+
+reducerFlipCard : Model -> Model
+reducerFlipCard model =
+    { model
+        | userDecks =
+            if model.activeCardId > 0 then
+                updatedUserDecks model False
+
+            else
+                model.userDecks
+        , cardIsFlipped = not model.cardIsFlipped
+    }
+
+
+reducerUpdateDecks : Model -> (Card -> Card) -> Model
+reducerUpdateDecks model cardUpdateFunc =
+    let
+        updateCard cardIterIndex card =
+            if cardIterIndex == model.activeCardId then
+                cardUpdateFunc card
+
+            else
+                card
+
+        updateDeck deck =
+            case model.activeDeckSlug of
+                Just activeDeckSlug ->
+                    if deck.slug == activeDeckSlug then
+                        { deck | cards = List.indexedMap updateCard deck.cards }
+
+                    else
+                        deck
+
+                Nothing ->
+                    deck
+    in
+    { model | userDecks = List.map updateDeck (updatedUserDecks model False) }
+
+
+reducerUpdateApplicationDecks : Model -> RemoteData.WebData (List Deck) -> Model
+reducerUpdateApplicationDecks model response =
+    { model | applicationDecks = response }
+
+
+synchronizeCards : Deck -> Deck -> Deck
+synchronizeCards applicationDeck deck =
+    let
+        deckCardLength =
+            List.length deck.cards
+
+        cardsAppendage =
+            List.drop deckCardLength applicationDeck.cards
+
+        updatedCards =
+            List.map2 (\appDeckCard userDeckCard -> { userDeckCard | front = appDeckCard.front, back = appDeckCard.back }) applicationDeck.cards deck.cards
+    in
+    { deck | name = applicationDeck.name, tags = applicationDeck.tags, cards = updatedCards ++ cardsAppendage }
+
+
+updatedUserDecks : Model -> Bool -> List Deck
+updatedUserDecks model onlySync =
+    case model.applicationDecks of
+        RemoteData.Success applicationDecks ->
+            case model.activeDeckSlug of
+                Just activeDeckSlug ->
+                    case findBySlug activeDeckSlug applicationDecks of
+                        Just applicationDeck ->
+                            if onlySync then
+                                List.map (replaceBySlug activeDeckSlug (synchronizeCards applicationDeck)) model.userDecks
+
+                            else if not (isDeckInList activeDeckSlug model.userDecks) then
+                                model.userDecks ++ [ applicationDeck ]
+
+                            else
+                                model.userDecks
+
+                        Nothing ->
+                            model.userDecks
+
+                Nothing ->
+                    model.userDecks
+
+        _ ->
+            model.userDecks
+
+
+toggleActiveCardLearnt : Card -> Card
+toggleActiveCardLearnt card =
+    { card | learnt = not card.learnt }

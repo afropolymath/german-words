@@ -3872,6 +3872,181 @@ function _VirtualDom_dekey(keyedNode)
 
 
 
+// SEND REQUEST
+
+var _Http_toTask = F3(function(router, toTask, request)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		function done(response) {
+			callback(toTask(request.expect.a(response)));
+		}
+
+		var xhr = new XMLHttpRequest();
+		xhr.addEventListener('error', function() { done(elm$http$Http$NetworkError_); });
+		xhr.addEventListener('timeout', function() { done(elm$http$Http$Timeout_); });
+		xhr.addEventListener('load', function() { done(_Http_toResponse(request.expect.b, xhr)); });
+		elm$core$Maybe$isJust(request.tracker) && _Http_track(router, xhr, request.tracker.a);
+
+		try {
+			xhr.open(request.method, request.url, true);
+		} catch (e) {
+			return done(elm$http$Http$BadUrl_(request.url));
+		}
+
+		_Http_configureRequest(xhr, request);
+
+		request.body.a && xhr.setRequestHeader('Content-Type', request.body.a);
+		xhr.send(request.body.b);
+
+		return function() { xhr.c = true; xhr.abort(); };
+	});
+});
+
+
+// CONFIGURE
+
+function _Http_configureRequest(xhr, request)
+{
+	for (var headers = request.headers; headers.b; headers = headers.b) // WHILE_CONS
+	{
+		xhr.setRequestHeader(headers.a.a, headers.a.b);
+	}
+	xhr.timeout = request.timeout.a || 0;
+	xhr.responseType = request.expect.d;
+	xhr.withCredentials = request.allowCookiesFromOtherDomains;
+}
+
+
+// RESPONSES
+
+function _Http_toResponse(toBody, xhr)
+{
+	return A2(
+		200 <= xhr.status && xhr.status < 300 ? elm$http$Http$GoodStatus_ : elm$http$Http$BadStatus_,
+		_Http_toMetadata(xhr),
+		toBody(xhr.response)
+	);
+}
+
+
+// METADATA
+
+function _Http_toMetadata(xhr)
+{
+	return {
+		url: xhr.responseURL,
+		statusCode: xhr.status,
+		statusText: xhr.statusText,
+		headers: _Http_parseHeaders(xhr.getAllResponseHeaders())
+	};
+}
+
+
+// HEADERS
+
+function _Http_parseHeaders(rawHeaders)
+{
+	if (!rawHeaders)
+	{
+		return elm$core$Dict$empty;
+	}
+
+	var headers = elm$core$Dict$empty;
+	var headerPairs = rawHeaders.split('\r\n');
+	for (var i = headerPairs.length; i--; )
+	{
+		var headerPair = headerPairs[i];
+		var index = headerPair.indexOf(': ');
+		if (index > 0)
+		{
+			var key = headerPair.substring(0, index);
+			var value = headerPair.substring(index + 2);
+
+			headers = A3(elm$core$Dict$update, key, function(oldValue) {
+				return elm$core$Maybe$Just(elm$core$Maybe$isJust(oldValue)
+					? value + ', ' + oldValue.a
+					: value
+				);
+			}, headers);
+		}
+	}
+	return headers;
+}
+
+
+// EXPECT
+
+var _Http_expect = F3(function(type, toBody, toValue)
+{
+	return {
+		$: 0,
+		d: type,
+		b: toBody,
+		a: toValue
+	};
+});
+
+var _Http_mapExpect = F2(function(func, expect)
+{
+	return {
+		$: 0,
+		d: expect.d,
+		b: expect.b,
+		a: function(x) { return func(expect.a(x)); }
+	};
+});
+
+function _Http_toDataView(arrayBuffer)
+{
+	return new DataView(arrayBuffer);
+}
+
+
+// BODY and PARTS
+
+var _Http_emptyBody = { $: 0 };
+var _Http_pair = F2(function(a, b) { return { $: 0, a: a, b: b }; });
+
+function _Http_toFormData(parts)
+{
+	for (var formData = new FormData(); parts.b; parts = parts.b) // WHILE_CONS
+	{
+		var part = parts.a;
+		formData.append(part.a, part.b);
+	}
+	return formData;
+}
+
+var _Http_bytesToBlob = F2(function(mime, bytes)
+{
+	return new Blob([bytes], { type: mime });
+});
+
+
+// PROGRESS
+
+function _Http_track(router, xhr, tracker)
+{
+	// TODO check out lengthComputable on loadstart event
+
+	xhr.upload.addEventListener('progress', function(event) {
+		if (xhr.c) { return; }
+		_Scheduler_rawSpawn(A2(elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, elm$http$Http$Sending({
+			sent: event.loaded,
+			size: event.total
+		}))));
+	});
+	xhr.addEventListener('progress', function(event) {
+		if (xhr.c) { return; }
+		_Scheduler_rawSpawn(A2(elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, elm$http$Http$Receiving({
+			received: event.loaded,
+			size: event.lengthComputable ? elm$core$Maybe$Just(event.total) : elm$core$Maybe$Nothing
+		}))));
+	});
+}
+
+
 
 // ELEMENT
 
@@ -4994,15 +5169,15 @@ var elm_community$list_extra$List$Extra$getAt = F2(
 		return (idx < 0) ? elm$core$Maybe$Nothing : elm$core$List$head(
 			A2(elm$core$List$drop, idx, xs));
 	});
-var author$project$MainView$renderDeck = F3(
-	function (deck, activeCardId, cardIsFlipped) {
+var author$project$MainView$renderDeck = F2(
+	function (model, deck) {
 		var displayText = function (card) {
-			return cardIsFlipped ? card.back : card.front;
+			return model.cardIsFlipped ? card.back : card.front;
 		};
-		var displayPreviousCard = (!activeCardId) ? author$project$AppTypes$DisplayCard(activeCardId) : author$project$AppTypes$DisplayCard(activeCardId - 1);
+		var displayPreviousCard = (!model.activeCardId) ? author$project$AppTypes$DisplayCard(model.activeCardId) : author$project$AppTypes$DisplayCard(model.activeCardId - 1);
 		var displayNextCard = _Utils_eq(
-			activeCardId,
-			elm$core$List$length(deck.cards) - 1) ? author$project$AppTypes$DisplayCard(activeCardId) : author$project$AppTypes$DisplayCard(activeCardId + 1);
+			model.activeCardId,
+			elm$core$List$length(deck.cards) - 1) ? author$project$AppTypes$DisplayCard(model.activeCardId) : author$project$AppTypes$DisplayCard(model.activeCardId + 1);
 		var deckCardNavItem = F2(
 			function (cardIndex, card) {
 				return A2(
@@ -5014,7 +5189,7 @@ var author$project$MainView$renderDeck = F3(
 								[
 									_Utils_Tuple2(
 									'active',
-									_Utils_eq(cardIndex, activeCardId)),
+									_Utils_eq(cardIndex, model.activeCardId)),
 									_Utils_Tuple2('learnt', card.learnt)
 								])),
 							elm$html$Html$Events$onClick(
@@ -5023,7 +5198,7 @@ var author$project$MainView$renderDeck = F3(
 					_List_Nil);
 			});
 		var activeCard = function () {
-			var _n0 = A2(elm_community$list_extra$List$Extra$getAt, activeCardId, deck.cards);
+			var _n0 = A2(elm_community$list_extra$List$Extra$getAt, model.activeCardId, deck.cards);
 			if (_n0.$ === 'Just') {
 				var card = _n0.a;
 				return A2(
@@ -5124,7 +5299,7 @@ var author$project$MainView$renderDeck = F3(
 								]),
 							_List_fromArray(
 								[
-									elm$html$Html$text('All Decks')
+									elm$html$Html$text('Back to all Decks')
 								])),
 							A2(
 							elm$html$Html$li,
@@ -5147,82 +5322,193 @@ var author$project$MainView$renderDeck = F3(
 var author$project$AppTypes$DisplayDeck = function (a) {
 	return {$: 'DisplayDeck', a: a};
 };
+var elm$core$List$isEmpty = function (xs) {
+	if (!xs.b) {
+		return true;
+	} else {
+		return false;
+	}
+};
 var elm$html$Html$p = _VirtualDom_node('p');
-var author$project$MainView$renderDeckListItem = F2(
-	function (deckId, deck) {
-		var learntCount = elm$core$List$length(
-			A2(
-				elm$core$List$filter,
-				function (card) {
-					return card.learnt;
-				},
-				deck.cards));
-		var learntCards = A2(
-			elm$core$String$join,
-			' ',
-			_List_fromArray(
-				[
-					elm$core$String$fromInt(learntCount),
-					'out of',
-					elm$core$String$fromInt(
-					elm$core$List$length(deck.cards)),
-					'cards learnt'
-				]));
-		return A2(
-			elm$html$Html$div,
-			_List_fromArray(
-				[
-					elm$html$Html$Attributes$class('deck-list-item'),
-					elm$html$Html$Events$onClick(
-					author$project$AppTypes$DisplayDeck(deckId))
-				]),
-			_List_fromArray(
-				[
-					A2(
-					elm$html$Html$p,
-					_List_fromArray(
-						[
-							elm$html$Html$Attributes$class('deck-name')
-						]),
-					_List_fromArray(
-						[
-							elm$html$Html$text(deck.name)
-						])),
-					A2(
-					elm$html$Html$p,
-					_List_fromArray(
-						[
-							elm$html$Html$Attributes$class('deck-stat')
-						]),
-					_List_fromArray(
-						[
-							elm$html$Html$text(learntCards)
-						]))
-				]));
-	});
-var author$project$MainView$renderDeckList = function (decks) {
+var author$project$MainView$renderDeckListItem = function (deck) {
+	var learntCount = elm$core$List$length(
+		A2(
+			elm$core$List$filter,
+			function (card) {
+				return card.learnt;
+			},
+			deck.cards));
+	var learntCards = A2(
+		elm$core$String$join,
+		' ',
+		_List_fromArray(
+			[
+				elm$core$String$fromInt(learntCount),
+				'/',
+				elm$core$String$fromInt(
+				elm$core$List$length(deck.cards)),
+				'cards learnt'
+			]));
 	return A2(
 		elm$html$Html$div,
 		_List_fromArray(
 			[
-				elm$html$Html$Attributes$class('deck-list')
+				elm$html$Html$Attributes$class('deck-list-item'),
+				elm$html$Html$Events$onClick(
+				author$project$AppTypes$DisplayDeck(deck.slug))
 			]),
-		A2(elm$core$List$indexedMap, author$project$MainView$renderDeckListItem, decks));
+		_List_fromArray(
+			[
+				A2(
+				elm$html$Html$p,
+				_List_fromArray(
+					[
+						elm$html$Html$Attributes$class('deck-name')
+					]),
+				_List_fromArray(
+					[
+						elm$html$Html$text(deck.name)
+					])),
+				A2(
+				elm$html$Html$p,
+				_List_fromArray(
+					[
+						elm$html$Html$Attributes$class('deck-stat')
+					]),
+				_List_fromArray(
+					[
+						elm$html$Html$text(learntCards)
+					])),
+				A2(
+				elm$html$Html$p,
+				_List_fromArray(
+					[
+						elm$html$Html$Attributes$classList(
+						_List_fromArray(
+							[
+								_Utils_Tuple2('deck-tags', true),
+								_Utils_Tuple2(
+								'is-hidden',
+								elm$core$List$isEmpty(deck.tags))
+							]))
+					]),
+				A2(
+					elm$core$List$map,
+					function (tag) {
+						return A2(
+							elm$html$Html$span,
+							_List_Nil,
+							_List_fromArray(
+								[
+									elm$html$Html$text(tag)
+								]));
+					},
+					deck.tags))
+			]));
 };
-var author$project$MainView$renderDecks = F4(
-	function (decks, deckId, cardId, cardIsFlipped) {
-		if (deckId < 0) {
-			return author$project$MainView$renderDeckList(decks);
+var author$project$Utils$findBySlug = F2(
+	function (slug, deckList) {
+		return elm$core$List$head(
+			A2(
+				elm$core$List$filter,
+				function (deck) {
+					return _Utils_eq(deck.slug, slug);
+				},
+				deckList));
+	});
+var elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
+	});
+var elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
 		} else {
-			var _n0 = A2(elm_community$list_extra$List$Extra$getAt, deckId, decks);
-			if (_n0.$ === 'Just') {
-				var activeDeck = _n0.a;
-				return A3(author$project$MainView$renderDeck, activeDeck, cardId, cardIsFlipped);
-			} else {
-				return author$project$MainView$renderDeckList(decks);
-			}
+			return _default;
 		}
 	});
+var author$project$MainView$renderDeckList = F2(
+	function (userDecks, applicationDecks) {
+		var classifyBeforeRender = function (deck) {
+			return A2(
+				elm$core$Maybe$withDefault,
+				deck,
+				A2(author$project$Utils$findBySlug, deck.slug, userDecks));
+		};
+		return A2(
+			elm$html$Html$div,
+			_List_fromArray(
+				[
+					elm$html$Html$Attributes$class('deck-list-container')
+				]),
+			_List_fromArray(
+				[
+					A2(
+					elm$html$Html$ul,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$class('breadcrumb-nav')
+						]),
+					_List_fromArray(
+						[
+							A2(
+							elm$html$Html$li,
+							_List_Nil,
+							_List_fromArray(
+								[
+									elm$html$Html$text(
+									'Showing all ' + (elm$core$String$fromInt(
+										elm$core$List$length(applicationDecks)) + ' Decks'))
+								]))
+						])),
+					A2(
+					elm$html$Html$div,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$class('deck-list')
+						]),
+					A2(
+						elm$core$List$map,
+						A2(elm$core$Basics$composeR, classifyBeforeRender, author$project$MainView$renderDeckListItem),
+						applicationDecks))
+				]));
+	});
+var author$project$MainView$withDefaultMaybe = F2(
+	function (fallBackMaybe, maybe) {
+		if (maybe.$ === 'Just') {
+			var val = maybe.a;
+			return elm$core$Maybe$Just(val);
+		} else {
+			return fallBackMaybe;
+		}
+	});
+var author$project$MainView$renderDecks = function (model) {
+	var _n0 = model.applicationDecks;
+	if (_n0.$ === 'Success') {
+		var applicationDecks = _n0.a;
+		var _n1 = model.activeDeckSlug;
+		if (_n1.$ === 'Just') {
+			var activeDeckSlug = _n1.a;
+			var _n2 = A2(
+				author$project$MainView$withDefaultMaybe,
+				A2(author$project$Utils$findBySlug, activeDeckSlug, applicationDecks),
+				A2(author$project$Utils$findBySlug, activeDeckSlug, model.userDecks));
+			if (_n2.$ === 'Just') {
+				var activeDeck = _n2.a;
+				return A2(author$project$MainView$renderDeck, model, activeDeck);
+			} else {
+				return A2(author$project$MainView$renderDeckList, model.userDecks, applicationDecks);
+			}
+		} else {
+			return A2(author$project$MainView$renderDeckList, model.userDecks, applicationDecks);
+		}
+	} else {
+		return A2(author$project$MainView$renderDeckList, model.userDecks, _List_Nil);
+	}
+};
 var elm$html$Html$section = _VirtualDom_node('section');
 var author$project$MainView$view = function (model) {
 	return A2(
@@ -5254,7 +5540,7 @@ var author$project$MainView$view = function (model) {
 									]),
 								_List_fromArray(
 									[
-										elm$html$Html$text('German words')
+										elm$html$Html$text(model.applicationTitle)
 									]))
 							]))
 					])),
@@ -5274,161 +5560,979 @@ var author$project$MainView$view = function (model) {
 							]),
 						_List_fromArray(
 							[
-								A4(author$project$MainView$renderDecks, model.decks, model.activeDeckId, model.activeCardId, model.cardIsFlipped)
+								author$project$MainView$renderDecks(model)
 							]))
 					]))
 			]));
 };
-var author$project$AppTypes$Model = F4(
-	function (decks, activeDeckId, activeCardId, cardIsFlipped) {
-		return {activeCardId: activeCardId, activeDeckId: activeDeckId, cardIsFlipped: cardIsFlipped, decks: decks};
+var author$project$AppTypes$Model = F6(
+	function (applicationTitle, applicationDecks, userDecks, activeDeckSlug, activeCardId, cardIsFlipped) {
+		return {activeCardId: activeCardId, activeDeckSlug: activeDeckSlug, applicationDecks: applicationDecks, applicationTitle: applicationTitle, cardIsFlipped: cardIsFlipped, userDecks: userDecks};
 	});
+var author$project$AppTypes$DecksReceived = function (a) {
+	return {$: 'DecksReceived', a: a};
+};
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom = elm$json$Json$Decode$map2(elm$core$Basics$apR);
+var elm$json$Json$Decode$andThen = _Json_andThen;
+var elm$json$Json$Decode$decodeValue = _Json_run;
+var elm$json$Json$Decode$fail = _Json_fail;
+var elm$json$Json$Decode$null = _Json_decodeNull;
+var elm$json$Json$Decode$oneOf = _Json_oneOf;
+var elm$json$Json$Decode$value = _Json_decodeValue;
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optionalDecoder = F3(
+	function (pathDecoder, valDecoder, fallback) {
+		var nullOr = function (decoder) {
+			return elm$json$Json$Decode$oneOf(
+				_List_fromArray(
+					[
+						decoder,
+						elm$json$Json$Decode$null(fallback)
+					]));
+		};
+		var handleResult = function (input) {
+			var _n0 = A2(elm$json$Json$Decode$decodeValue, pathDecoder, input);
+			if (_n0.$ === 'Ok') {
+				var rawValue = _n0.a;
+				var _n1 = A2(
+					elm$json$Json$Decode$decodeValue,
+					nullOr(valDecoder),
+					rawValue);
+				if (_n1.$ === 'Ok') {
+					var finalResult = _n1.a;
+					return elm$json$Json$Decode$succeed(finalResult);
+				} else {
+					var finalErr = _n1.a;
+					return elm$json$Json$Decode$fail(
+						elm$json$Json$Decode$errorToString(finalErr));
+				}
+			} else {
+				return elm$json$Json$Decode$succeed(fallback);
+			}
+		};
+		return A2(elm$json$Json$Decode$andThen, handleResult, elm$json$Json$Decode$value);
+	});
+var elm$json$Json$Decode$field = _Json_decodeField;
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional = F4(
+	function (key, valDecoder, fallback, decoder) {
+		return A2(
+			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom,
+			A3(
+				NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optionalDecoder,
+				A2(elm$json$Json$Decode$field, key, elm$json$Json$Decode$value),
+				valDecoder,
+				fallback),
+			decoder);
+	});
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required = F3(
+	function (key, valDecoder, decoder) {
+		return A2(
+			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom,
+			A2(elm$json$Json$Decode$field, key, valDecoder),
+			decoder);
+	});
+var author$project$AppTypes$Deck = F4(
+	function (name, slug, tags, cards) {
+		return {cards: cards, name: name, slug: slug, tags: tags};
+	});
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded = A2(elm$core$Basics$composeR, elm$json$Json$Decode$succeed, NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom);
 var author$project$AppTypes$Card = F3(
 	function (front, back, learnt) {
 		return {back: back, front: front, learnt: learnt};
 	});
-var author$project$AppTypes$Deck = F2(
-	function (name, cards) {
-		return {cards: cards, name: name};
-	});
-var author$project$Decks$availableDecks = _List_fromArray(
-	[
-		A2(
-		author$project$AppTypes$Deck,
-		'Learning Deck 1',
-		_List_fromArray(
-			[
-				A3(author$project$AppTypes$Card, 'die Nutzern', 'The users', false),
-				A3(author$project$AppTypes$Card, 'Bestätigung', 'Confirmation', false)
-			])),
-		A2(
-		author$project$AppTypes$Deck,
-		'Commonly used verbs',
-		_List_fromArray(
-			[
-				A3(author$project$AppTypes$Card, 'langern', 'To extend', false),
-				A3(author$project$AppTypes$Card, 'wollen', 'To want', false),
-				A3(author$project$AppTypes$Card, 'wollen', 'To want', false)
-			])),
-		A2(
-		author$project$AppTypes$Deck,
-		'Dictionary Deck 1',
-		_List_fromArray(
-			[
-				A3(author$project$AppTypes$Card, 'verwelkte Blumen', 'faded flowers', false),
-				A3(author$project$AppTypes$Card, 'verwirklichen', 'realize', false),
-				A3(author$project$AppTypes$Card, 'verwirren', 'puzzle', false),
-				A3(author$project$AppTypes$Card, 'verwöhnen', 'spoil (irr.)', false),
-				A3(author$project$AppTypes$Card, 'verwöhnt', 'spoilt', false),
-				A3(author$project$AppTypes$Card, 'verwöhnte', 'spoilt', false),
-				A3(author$project$AppTypes$Card, 'verwunden', 'wound', false),
-				A3(author$project$AppTypes$Card, 'Verwunderung', 'wonder', false),
-				A3(author$project$AppTypes$Card, 'verwundet', 'wounded', false),
-				A3(author$project$AppTypes$Card, 'verwurzelt', 'rooted', false),
-				A3(author$project$AppTypes$Card, 'Verzeichnis', 'register', false),
-				A3(author$project$AppTypes$Card, 'verzeihen', 'pardon', false),
-				A3(author$project$AppTypes$Card, 'Verzeihung', 'pardon', false),
-				A3(author$project$AppTypes$Card, 'verzichten auf', 'do without', false),
-				A3(author$project$AppTypes$Card, 'verzieh', 'forgave', false),
-				A3(author$project$AppTypes$Card, 'verziehen', 'forgiven', false),
-				A3(author$project$AppTypes$Card, 'verzieren', 'ornament', false),
-				A3(author$project$AppTypes$Card, 'Verzierung', 'ornament', false),
-				A3(author$project$AppTypes$Card, 'verzögern', 'delay', false),
-				A3(author$project$AppTypes$Card, 'Verzögerung', 'delay', false),
-				A3(author$project$AppTypes$Card, 'verzweifeln', 'despair', false),
-				A3(author$project$AppTypes$Card, 'verzweifelt', 'desperate', false),
-				A3(author$project$AppTypes$Card, 'Verzweiflung', 'despair', false),
-				A3(author$project$AppTypes$Card, 'verzweigen', 'branch', false),
-				A3(author$project$AppTypes$Card, 'Vetter', 'cousin', false),
-				A3(author$project$AppTypes$Card, 'Vieh treiben', 'drive (irr.)', false),
-				A3(author$project$AppTypes$Card, 'viel', 'much', false),
-				A3(author$project$AppTypes$Card, 'viel Geld', 'plenty of money', false),
-				A3(author$project$AppTypes$Card, 'Viel Glück !', 'good luck !', false),
-				A3(author$project$AppTypes$Card, 'viel größer', 'much bigger', false),
-				A3(author$project$AppTypes$Card, 'viel mehr', 'much more', false),
-				A3(author$project$AppTypes$Card, 'Viel Vergnügen !', 'have a good time !', false),
-				A3(author$project$AppTypes$Card, 'viel zu essen', 'plenty of food', false),
-				A3(author$project$AppTypes$Card, 'viele', 'many', false),
-				A3(author$project$AppTypes$Card, 'viele Leute', 'many people', false),
-				A3(author$project$AppTypes$Card, 'vielen Dank !', 'thank you very much !', false),
-				A3(author$project$AppTypes$Card, 'vielleicht', 'perhaps', false),
-				A3(author$project$AppTypes$Card, 'vier', 'four', false),
-				A3(author$project$AppTypes$Card, 'vierte', 'fourth', false),
-				A3(author$project$AppTypes$Card, 'Viertel', 'quarter', false),
-				A3(author$project$AppTypes$Card, 'Viertel nach', 'a quarter past', false),
-				A3(author$project$AppTypes$Card, 'Viertel vor', 'a quarter to', false),
-				A3(author$project$AppTypes$Card, 'vierteljährlich', 'quarterly', false),
-				A3(author$project$AppTypes$Card, 'Viertelstunde', 'quarter', false),
-				A3(author$project$AppTypes$Card, 'vierzehn', 'fourteen', false),
-				A3(author$project$AppTypes$Card, 'vierzehn Tage', 'fortnight', false),
-				A3(author$project$AppTypes$Card, 'vierzehnte', 'fourteenth', false),
-				A3(author$project$AppTypes$Card, 'vierzig', 'forty', false),
-				A3(author$project$AppTypes$Card, 'vierzigste', 'fortieth', false),
-				A3(author$project$AppTypes$Card, 'Violine', 'violin', false),
-				A3(author$project$AppTypes$Card, 'Vogel', 'bird', false),
-				A3(author$project$AppTypes$Card, 'Vogelfeder', 'feather', false),
-				A3(author$project$AppTypes$Card, 'Volk', 'people', false),
-				A3(author$project$AppTypes$Card, 'volkommen machen', 'perfect', false),
-				A3(author$project$AppTypes$Card, 'Volksstamm', 'tribe', false),
-				A3(author$project$AppTypes$Card, 'voll', 'full', false),
-				A3(author$project$AppTypes$Card, 'voll Respekt', 'respectful', false),
-				A3(author$project$AppTypes$Card, 'voll Sorge', 'sorrowful', false),
-				A3(author$project$AppTypes$Card, 'völlig', 'entire', false),
-				A3(author$project$AppTypes$Card, 'vollkommen', 'perfect', false),
-				A3(author$project$AppTypes$Card, 'vollkommenes Glück', 'entire happiness', false),
-				A3(author$project$AppTypes$Card, 'Vollkommenheit', 'perfection', false),
-				A3(author$project$AppTypes$Card, 'vollständig', 'complete', false),
-				A3(author$project$AppTypes$Card, 'Volumen', 'volume', false),
-				A3(author$project$AppTypes$Card, 'vom Boden aufheben', 'pick up', false),
-				A3(author$project$AppTypes$Card, 'vom Geschäft reden', 'talk business', false),
-				A3(author$project$AppTypes$Card, 'von', 'of', false),
-				A3(author$project$AppTypes$Card, 'von (... her)', 'from', false),
-				A3(author$project$AppTypes$Card, 'von ... bis', 'from ... to', false),
-				A3(author$project$AppTypes$Card, 'von einem Konto abheben', 'draw from an account', false),
-				A3(author$project$AppTypes$Card, 'von etwas abhängen', 'depend on something', false),
-				A3(author$project$AppTypes$Card, 'von etwas reden', 'talk about something', false),
-				A3(author$project$AppTypes$Card, 'von fester Beschaffenheit', 'solid', false),
-				A3(author$project$AppTypes$Card, 'von Geburt an', 'by birth', false),
-				A3(author$project$AppTypes$Card, 'von oben bis unten', 'from top to bottom', false),
-				A3(author$project$AppTypes$Card, 'von Shakespeare', 'by Shakespeare', false),
-				A3(author$project$AppTypes$Card, 'von Würmern gefressen', 'worm-eaten', false),
-				A3(author$project$AppTypes$Card, 'voneinander abhängig', 'interdependent', false),
-				A3(author$project$AppTypes$Card, 'vor', 'before', false),
-				A3(author$project$AppTypes$Card, 'vor 1980', 'before 1980', false),
-				A3(author$project$AppTypes$Card, 'vor allem', 'most of all', false),
-				A3(author$project$AppTypes$Card, 'vor dem Gebäude', 'in front of the building', false),
-				A3(author$project$AppTypes$Card, 'vor kurzem', 'recently', false),
-				A3(author$project$AppTypes$Card, 'vor langer Zeit', 'a long time ago', false),
-				A3(author$project$AppTypes$Card, 'vor zwei Tage', 'two days ago', false),
-				A3(author$project$AppTypes$Card, 'voran gehen', 'go ahead', false),
-				A3(author$project$AppTypes$Card, 'voraus', 'ahead', false),
-				A3(author$project$AppTypes$Card, 'vorbei an', 'by', false),
-				A3(author$project$AppTypes$Card, 'vorbeifahren', 'pass by', false),
-				A3(author$project$AppTypes$Card, 'vorbeigehen', 'pass', false),
-				A3(author$project$AppTypes$Card, 'vorbereiten', 'prepare', false),
-				A3(author$project$AppTypes$Card, 'Vorbereitung', 'preparation', false),
-				A3(author$project$AppTypes$Card, 'Vorbild', 'model', false),
-				A3(author$project$AppTypes$Card, 'Vorderside', 'front', false)
-			]))
-	]);
-var elm$core$Platform$Cmd$batch = _Platform_batch;
-var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
-var author$project$State$init = function (flags) {
-	var decks = function () {
-		if (flags.$ === 'Just') {
-			var cachedDecks = flags.a;
-			return cachedDecks;
+var elm$json$Json$Decode$string = _Json_decodeString;
+var author$project$Decks$cardDecoder = A2(
+	NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded,
+	false,
+	A3(
+		NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+		'back',
+		elm$json$Json$Decode$string,
+		A3(
+			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+			'front',
+			elm$json$Json$Decode$string,
+			elm$json$Json$Decode$succeed(author$project$AppTypes$Card))));
+var elm$json$Json$Decode$list = _Json_decodeList;
+var author$project$Decks$deckDecoder = A3(
+	NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+	'cards',
+	elm$json$Json$Decode$list(author$project$Decks$cardDecoder),
+	A4(
+		NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+		'tags',
+		elm$json$Json$Decode$list(elm$json$Json$Decode$string),
+		_List_Nil,
+		A3(
+			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+			'slug',
+			elm$json$Json$Decode$string,
+			A3(
+				NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+				'name',
+				elm$json$Json$Decode$string,
+				elm$json$Json$Decode$succeed(author$project$AppTypes$Deck)))));
+var author$project$Decks$url = 'http://localhost:8080/data/decks.json';
+var elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return elm$core$Result$Ok(v);
 		} else {
-			return author$project$Decks$availableDecks;
+			var e = result.a;
+			return elm$core$Result$Err(
+				f(e));
+		}
+	});
+var elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
+var elm$core$Dict$empty = elm$core$Dict$RBEmpty_elm_builtin;
+var elm$core$Basics$compare = _Utils_compare;
+var elm$core$Dict$get = F2(
+	function (targetKey, dict) {
+		get:
+		while (true) {
+			if (dict.$ === 'RBEmpty_elm_builtin') {
+				return elm$core$Maybe$Nothing;
+			} else {
+				var key = dict.b;
+				var value = dict.c;
+				var left = dict.d;
+				var right = dict.e;
+				var _n1 = A2(elm$core$Basics$compare, targetKey, key);
+				switch (_n1.$) {
+					case 'LT':
+						var $temp$targetKey = targetKey,
+							$temp$dict = left;
+						targetKey = $temp$targetKey;
+						dict = $temp$dict;
+						continue get;
+					case 'EQ':
+						return elm$core$Maybe$Just(value);
+					default:
+						var $temp$targetKey = targetKey,
+							$temp$dict = right;
+						targetKey = $temp$targetKey;
+						dict = $temp$dict;
+						continue get;
+				}
+			}
+		}
+	});
+var elm$core$Dict$Black = {$: 'Black'};
+var elm$core$Dict$RBNode_elm_builtin = F5(
+	function (a, b, c, d, e) {
+		return {$: 'RBNode_elm_builtin', a: a, b: b, c: c, d: d, e: e};
+	});
+var elm$core$Dict$Red = {$: 'Red'};
+var elm$core$Dict$balance = F5(
+	function (color, key, value, left, right) {
+		if ((right.$ === 'RBNode_elm_builtin') && (right.a.$ === 'Red')) {
+			var _n1 = right.a;
+			var rK = right.b;
+			var rV = right.c;
+			var rLeft = right.d;
+			var rRight = right.e;
+			if ((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) {
+				var _n3 = left.a;
+				var lK = left.b;
+				var lV = left.c;
+				var lLeft = left.d;
+				var lRight = left.e;
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Red,
+					key,
+					value,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, lK, lV, lLeft, lRight),
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, rK, rV, rLeft, rRight));
+			} else {
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					color,
+					rK,
+					rV,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, key, value, left, rLeft),
+					rRight);
+			}
+		} else {
+			if ((((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) && (left.d.$ === 'RBNode_elm_builtin')) && (left.d.a.$ === 'Red')) {
+				var _n5 = left.a;
+				var lK = left.b;
+				var lV = left.c;
+				var _n6 = left.d;
+				var _n7 = _n6.a;
+				var llK = _n6.b;
+				var llV = _n6.c;
+				var llLeft = _n6.d;
+				var llRight = _n6.e;
+				var lRight = left.e;
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Red,
+					lK,
+					lV,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, llK, llV, llLeft, llRight),
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, key, value, lRight, right));
+			} else {
+				return A5(elm$core$Dict$RBNode_elm_builtin, color, key, value, left, right);
+			}
+		}
+	});
+var elm$core$Dict$insertHelp = F3(
+	function (key, value, dict) {
+		if (dict.$ === 'RBEmpty_elm_builtin') {
+			return A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, key, value, elm$core$Dict$RBEmpty_elm_builtin, elm$core$Dict$RBEmpty_elm_builtin);
+		} else {
+			var nColor = dict.a;
+			var nKey = dict.b;
+			var nValue = dict.c;
+			var nLeft = dict.d;
+			var nRight = dict.e;
+			var _n1 = A2(elm$core$Basics$compare, key, nKey);
+			switch (_n1.$) {
+				case 'LT':
+					return A5(
+						elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						A3(elm$core$Dict$insertHelp, key, value, nLeft),
+						nRight);
+				case 'EQ':
+					return A5(elm$core$Dict$RBNode_elm_builtin, nColor, nKey, value, nLeft, nRight);
+				default:
+					return A5(
+						elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						nLeft,
+						A3(elm$core$Dict$insertHelp, key, value, nRight));
+			}
+		}
+	});
+var elm$core$Dict$insert = F3(
+	function (key, value, dict) {
+		var _n0 = A3(elm$core$Dict$insertHelp, key, value, dict);
+		if ((_n0.$ === 'RBNode_elm_builtin') && (_n0.a.$ === 'Red')) {
+			var _n1 = _n0.a;
+			var k = _n0.b;
+			var v = _n0.c;
+			var l = _n0.d;
+			var r = _n0.e;
+			return A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, k, v, l, r);
+		} else {
+			var x = _n0;
+			return x;
+		}
+	});
+var elm$core$Dict$getMin = function (dict) {
+	getMin:
+	while (true) {
+		if ((dict.$ === 'RBNode_elm_builtin') && (dict.d.$ === 'RBNode_elm_builtin')) {
+			var left = dict.d;
+			var $temp$dict = left;
+			dict = $temp$dict;
+			continue getMin;
+		} else {
+			return dict;
+		}
+	}
+};
+var elm$core$Dict$moveRedLeft = function (dict) {
+	if (((dict.$ === 'RBNode_elm_builtin') && (dict.d.$ === 'RBNode_elm_builtin')) && (dict.e.$ === 'RBNode_elm_builtin')) {
+		if ((dict.e.d.$ === 'RBNode_elm_builtin') && (dict.e.d.a.$ === 'Red')) {
+			var clr = dict.a;
+			var k = dict.b;
+			var v = dict.c;
+			var _n1 = dict.d;
+			var lClr = _n1.a;
+			var lK = _n1.b;
+			var lV = _n1.c;
+			var lLeft = _n1.d;
+			var lRight = _n1.e;
+			var _n2 = dict.e;
+			var rClr = _n2.a;
+			var rK = _n2.b;
+			var rV = _n2.c;
+			var rLeft = _n2.d;
+			var _n3 = rLeft.a;
+			var rlK = rLeft.b;
+			var rlV = rLeft.c;
+			var rlL = rLeft.d;
+			var rlR = rLeft.e;
+			var rRight = _n2.e;
+			return A5(
+				elm$core$Dict$RBNode_elm_builtin,
+				elm$core$Dict$Red,
+				rlK,
+				rlV,
+				A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Black,
+					k,
+					v,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					rlL),
+				A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, rK, rV, rlR, rRight));
+		} else {
+			var clr = dict.a;
+			var k = dict.b;
+			var v = dict.c;
+			var _n4 = dict.d;
+			var lClr = _n4.a;
+			var lK = _n4.b;
+			var lV = _n4.c;
+			var lLeft = _n4.d;
+			var lRight = _n4.e;
+			var _n5 = dict.e;
+			var rClr = _n5.a;
+			var rK = _n5.b;
+			var rV = _n5.c;
+			var rLeft = _n5.d;
+			var rRight = _n5.e;
+			if (clr.$ === 'Black') {
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Black,
+					k,
+					v,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, rK, rV, rLeft, rRight));
+			} else {
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Black,
+					k,
+					v,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, rK, rV, rLeft, rRight));
+			}
+		}
+	} else {
+		return dict;
+	}
+};
+var elm$core$Dict$moveRedRight = function (dict) {
+	if (((dict.$ === 'RBNode_elm_builtin') && (dict.d.$ === 'RBNode_elm_builtin')) && (dict.e.$ === 'RBNode_elm_builtin')) {
+		if ((dict.d.d.$ === 'RBNode_elm_builtin') && (dict.d.d.a.$ === 'Red')) {
+			var clr = dict.a;
+			var k = dict.b;
+			var v = dict.c;
+			var _n1 = dict.d;
+			var lClr = _n1.a;
+			var lK = _n1.b;
+			var lV = _n1.c;
+			var _n2 = _n1.d;
+			var _n3 = _n2.a;
+			var llK = _n2.b;
+			var llV = _n2.c;
+			var llLeft = _n2.d;
+			var llRight = _n2.e;
+			var lRight = _n1.e;
+			var _n4 = dict.e;
+			var rClr = _n4.a;
+			var rK = _n4.b;
+			var rV = _n4.c;
+			var rLeft = _n4.d;
+			var rRight = _n4.e;
+			return A5(
+				elm$core$Dict$RBNode_elm_builtin,
+				elm$core$Dict$Red,
+				lK,
+				lV,
+				A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, llK, llV, llLeft, llRight),
+				A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Black,
+					k,
+					v,
+					lRight,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, rK, rV, rLeft, rRight)));
+		} else {
+			var clr = dict.a;
+			var k = dict.b;
+			var v = dict.c;
+			var _n5 = dict.d;
+			var lClr = _n5.a;
+			var lK = _n5.b;
+			var lV = _n5.c;
+			var lLeft = _n5.d;
+			var lRight = _n5.e;
+			var _n6 = dict.e;
+			var rClr = _n6.a;
+			var rK = _n6.b;
+			var rV = _n6.c;
+			var rLeft = _n6.d;
+			var rRight = _n6.e;
+			if (clr.$ === 'Black') {
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Black,
+					k,
+					v,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, rK, rV, rLeft, rRight));
+			} else {
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Black,
+					k,
+					v,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, rK, rV, rLeft, rRight));
+			}
+		}
+	} else {
+		return dict;
+	}
+};
+var elm$core$Dict$removeHelpPrepEQGT = F7(
+	function (targetKey, dict, color, key, value, left, right) {
+		if ((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) {
+			var _n1 = left.a;
+			var lK = left.b;
+			var lV = left.c;
+			var lLeft = left.d;
+			var lRight = left.e;
+			return A5(
+				elm$core$Dict$RBNode_elm_builtin,
+				color,
+				lK,
+				lV,
+				lLeft,
+				A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, key, value, lRight, right));
+		} else {
+			_n2$2:
+			while (true) {
+				if ((right.$ === 'RBNode_elm_builtin') && (right.a.$ === 'Black')) {
+					if (right.d.$ === 'RBNode_elm_builtin') {
+						if (right.d.a.$ === 'Black') {
+							var _n3 = right.a;
+							var _n4 = right.d;
+							var _n5 = _n4.a;
+							return elm$core$Dict$moveRedRight(dict);
+						} else {
+							break _n2$2;
+						}
+					} else {
+						var _n6 = right.a;
+						var _n7 = right.d;
+						return elm$core$Dict$moveRedRight(dict);
+					}
+				} else {
+					break _n2$2;
+				}
+			}
+			return dict;
+		}
+	});
+var elm$core$Dict$removeMin = function (dict) {
+	if ((dict.$ === 'RBNode_elm_builtin') && (dict.d.$ === 'RBNode_elm_builtin')) {
+		var color = dict.a;
+		var key = dict.b;
+		var value = dict.c;
+		var left = dict.d;
+		var lColor = left.a;
+		var lLeft = left.d;
+		var right = dict.e;
+		if (lColor.$ === 'Black') {
+			if ((lLeft.$ === 'RBNode_elm_builtin') && (lLeft.a.$ === 'Red')) {
+				var _n3 = lLeft.a;
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					color,
+					key,
+					value,
+					elm$core$Dict$removeMin(left),
+					right);
+			} else {
+				var _n4 = elm$core$Dict$moveRedLeft(dict);
+				if (_n4.$ === 'RBNode_elm_builtin') {
+					var nColor = _n4.a;
+					var nKey = _n4.b;
+					var nValue = _n4.c;
+					var nLeft = _n4.d;
+					var nRight = _n4.e;
+					return A5(
+						elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						elm$core$Dict$removeMin(nLeft),
+						nRight);
+				} else {
+					return elm$core$Dict$RBEmpty_elm_builtin;
+				}
+			}
+		} else {
+			return A5(
+				elm$core$Dict$RBNode_elm_builtin,
+				color,
+				key,
+				value,
+				elm$core$Dict$removeMin(left),
+				right);
+		}
+	} else {
+		return elm$core$Dict$RBEmpty_elm_builtin;
+	}
+};
+var elm$core$Dict$removeHelp = F2(
+	function (targetKey, dict) {
+		if (dict.$ === 'RBEmpty_elm_builtin') {
+			return elm$core$Dict$RBEmpty_elm_builtin;
+		} else {
+			var color = dict.a;
+			var key = dict.b;
+			var value = dict.c;
+			var left = dict.d;
+			var right = dict.e;
+			if (_Utils_cmp(targetKey, key) < 0) {
+				if ((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Black')) {
+					var _n4 = left.a;
+					var lLeft = left.d;
+					if ((lLeft.$ === 'RBNode_elm_builtin') && (lLeft.a.$ === 'Red')) {
+						var _n6 = lLeft.a;
+						return A5(
+							elm$core$Dict$RBNode_elm_builtin,
+							color,
+							key,
+							value,
+							A2(elm$core$Dict$removeHelp, targetKey, left),
+							right);
+					} else {
+						var _n7 = elm$core$Dict$moveRedLeft(dict);
+						if (_n7.$ === 'RBNode_elm_builtin') {
+							var nColor = _n7.a;
+							var nKey = _n7.b;
+							var nValue = _n7.c;
+							var nLeft = _n7.d;
+							var nRight = _n7.e;
+							return A5(
+								elm$core$Dict$balance,
+								nColor,
+								nKey,
+								nValue,
+								A2(elm$core$Dict$removeHelp, targetKey, nLeft),
+								nRight);
+						} else {
+							return elm$core$Dict$RBEmpty_elm_builtin;
+						}
+					}
+				} else {
+					return A5(
+						elm$core$Dict$RBNode_elm_builtin,
+						color,
+						key,
+						value,
+						A2(elm$core$Dict$removeHelp, targetKey, left),
+						right);
+				}
+			} else {
+				return A2(
+					elm$core$Dict$removeHelpEQGT,
+					targetKey,
+					A7(elm$core$Dict$removeHelpPrepEQGT, targetKey, dict, color, key, value, left, right));
+			}
+		}
+	});
+var elm$core$Dict$removeHelpEQGT = F2(
+	function (targetKey, dict) {
+		if (dict.$ === 'RBNode_elm_builtin') {
+			var color = dict.a;
+			var key = dict.b;
+			var value = dict.c;
+			var left = dict.d;
+			var right = dict.e;
+			if (_Utils_eq(targetKey, key)) {
+				var _n1 = elm$core$Dict$getMin(right);
+				if (_n1.$ === 'RBNode_elm_builtin') {
+					var minKey = _n1.b;
+					var minValue = _n1.c;
+					return A5(
+						elm$core$Dict$balance,
+						color,
+						minKey,
+						minValue,
+						left,
+						elm$core$Dict$removeMin(right));
+				} else {
+					return elm$core$Dict$RBEmpty_elm_builtin;
+				}
+			} else {
+				return A5(
+					elm$core$Dict$balance,
+					color,
+					key,
+					value,
+					left,
+					A2(elm$core$Dict$removeHelp, targetKey, right));
+			}
+		} else {
+			return elm$core$Dict$RBEmpty_elm_builtin;
+		}
+	});
+var elm$core$Dict$remove = F2(
+	function (key, dict) {
+		var _n0 = A2(elm$core$Dict$removeHelp, key, dict);
+		if ((_n0.$ === 'RBNode_elm_builtin') && (_n0.a.$ === 'Red')) {
+			var _n1 = _n0.a;
+			var k = _n0.b;
+			var v = _n0.c;
+			var l = _n0.d;
+			var r = _n0.e;
+			return A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, k, v, l, r);
+		} else {
+			var x = _n0;
+			return x;
+		}
+	});
+var elm$core$Dict$update = F3(
+	function (targetKey, alter, dictionary) {
+		var _n0 = alter(
+			A2(elm$core$Dict$get, targetKey, dictionary));
+		if (_n0.$ === 'Just') {
+			var value = _n0.a;
+			return A3(elm$core$Dict$insert, targetKey, value, dictionary);
+		} else {
+			return A2(elm$core$Dict$remove, targetKey, dictionary);
+		}
+	});
+var elm$core$Maybe$isJust = function (maybe) {
+	if (maybe.$ === 'Just') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var elm$core$Platform$sendToApp = _Platform_sendToApp;
+var elm$core$Platform$sendToSelf = _Platform_sendToSelf;
+var elm$core$Result$map = F2(
+	function (func, ra) {
+		if (ra.$ === 'Ok') {
+			var a = ra.a;
+			return elm$core$Result$Ok(
+				func(a));
+		} else {
+			var e = ra.a;
+			return elm$core$Result$Err(e);
+		}
+	});
+var elm$http$Http$BadStatus_ = F2(
+	function (a, b) {
+		return {$: 'BadStatus_', a: a, b: b};
+	});
+var elm$http$Http$BadUrl_ = function (a) {
+	return {$: 'BadUrl_', a: a};
+};
+var elm$http$Http$GoodStatus_ = F2(
+	function (a, b) {
+		return {$: 'GoodStatus_', a: a, b: b};
+	});
+var elm$http$Http$NetworkError_ = {$: 'NetworkError_'};
+var elm$http$Http$Receiving = function (a) {
+	return {$: 'Receiving', a: a};
+};
+var elm$http$Http$Sending = function (a) {
+	return {$: 'Sending', a: a};
+};
+var elm$http$Http$Timeout_ = {$: 'Timeout_'};
+var elm$http$Http$expectStringResponse = F2(
+	function (toMsg, toResult) {
+		return A3(
+			_Http_expect,
+			'',
+			elm$core$Basics$identity,
+			A2(elm$core$Basics$composeR, toResult, toMsg));
+	});
+var elm$http$Http$BadBody = function (a) {
+	return {$: 'BadBody', a: a};
+};
+var elm$http$Http$BadStatus = function (a) {
+	return {$: 'BadStatus', a: a};
+};
+var elm$http$Http$BadUrl = function (a) {
+	return {$: 'BadUrl', a: a};
+};
+var elm$http$Http$NetworkError = {$: 'NetworkError'};
+var elm$http$Http$Timeout = {$: 'Timeout'};
+var elm$http$Http$resolve = F2(
+	function (toResult, response) {
+		switch (response.$) {
+			case 'BadUrl_':
+				var url = response.a;
+				return elm$core$Result$Err(
+					elm$http$Http$BadUrl(url));
+			case 'Timeout_':
+				return elm$core$Result$Err(elm$http$Http$Timeout);
+			case 'NetworkError_':
+				return elm$core$Result$Err(elm$http$Http$NetworkError);
+			case 'BadStatus_':
+				var metadata = response.a;
+				return elm$core$Result$Err(
+					elm$http$Http$BadStatus(metadata.statusCode));
+			default:
+				var body = response.b;
+				return A2(
+					elm$core$Result$mapError,
+					elm$http$Http$BadBody,
+					toResult(body));
+		}
+	});
+var elm$json$Json$Decode$decodeString = _Json_runOnString;
+var elm$http$Http$expectJson = F2(
+	function (toMsg, decoder) {
+		return A2(
+			elm$http$Http$expectStringResponse,
+			toMsg,
+			elm$http$Http$resolve(
+				function (string) {
+					return A2(
+						elm$core$Result$mapError,
+						elm$json$Json$Decode$errorToString,
+						A2(elm$json$Json$Decode$decodeString, decoder, string));
+				}));
+	});
+var elm$http$Http$emptyBody = _Http_emptyBody;
+var elm$http$Http$Request = function (a) {
+	return {$: 'Request', a: a};
+};
+var elm$core$Task$succeed = _Scheduler_succeed;
+var elm$http$Http$State = F2(
+	function (reqs, subs) {
+		return {reqs: reqs, subs: subs};
+	});
+var elm$http$Http$init = elm$core$Task$succeed(
+	A2(elm$http$Http$State, elm$core$Dict$empty, _List_Nil));
+var elm$core$Task$andThen = _Scheduler_andThen;
+var elm$core$Process$kill = _Scheduler_kill;
+var elm$core$Process$spawn = _Scheduler_spawn;
+var elm$http$Http$updateReqs = F3(
+	function (router, cmds, reqs) {
+		updateReqs:
+		while (true) {
+			if (!cmds.b) {
+				return elm$core$Task$succeed(reqs);
+			} else {
+				var cmd = cmds.a;
+				var otherCmds = cmds.b;
+				if (cmd.$ === 'Cancel') {
+					var tracker = cmd.a;
+					var _n2 = A2(elm$core$Dict$get, tracker, reqs);
+					if (_n2.$ === 'Nothing') {
+						var $temp$router = router,
+							$temp$cmds = otherCmds,
+							$temp$reqs = reqs;
+						router = $temp$router;
+						cmds = $temp$cmds;
+						reqs = $temp$reqs;
+						continue updateReqs;
+					} else {
+						var pid = _n2.a;
+						return A2(
+							elm$core$Task$andThen,
+							function (_n3) {
+								return A3(
+									elm$http$Http$updateReqs,
+									router,
+									otherCmds,
+									A2(elm$core$Dict$remove, tracker, reqs));
+							},
+							elm$core$Process$kill(pid));
+					}
+				} else {
+					var req = cmd.a;
+					return A2(
+						elm$core$Task$andThen,
+						function (pid) {
+							var _n4 = req.tracker;
+							if (_n4.$ === 'Nothing') {
+								return A3(elm$http$Http$updateReqs, router, otherCmds, reqs);
+							} else {
+								var tracker = _n4.a;
+								return A3(
+									elm$http$Http$updateReqs,
+									router,
+									otherCmds,
+									A3(elm$core$Dict$insert, tracker, pid, reqs));
+							}
+						},
+						elm$core$Process$spawn(
+							A3(
+								_Http_toTask,
+								router,
+								elm$core$Platform$sendToApp(router),
+								req)));
+				}
+			}
+		}
+	});
+var elm$http$Http$onEffects = F4(
+	function (router, cmds, subs, state) {
+		return A2(
+			elm$core$Task$andThen,
+			function (reqs) {
+				return elm$core$Task$succeed(
+					A2(elm$http$Http$State, reqs, subs));
+			},
+			A3(elm$http$Http$updateReqs, router, cmds, state.reqs));
+	});
+var elm$core$List$maybeCons = F3(
+	function (f, mx, xs) {
+		var _n0 = f(mx);
+		if (_n0.$ === 'Just') {
+			var x = _n0.a;
+			return A2(elm$core$List$cons, x, xs);
+		} else {
+			return xs;
+		}
+	});
+var elm$core$List$filterMap = F2(
+	function (f, xs) {
+		return A3(
+			elm$core$List$foldr,
+			elm$core$List$maybeCons(f),
+			_List_Nil,
+			xs);
+	});
+var elm$core$Task$map2 = F3(
+	function (func, taskA, taskB) {
+		return A2(
+			elm$core$Task$andThen,
+			function (a) {
+				return A2(
+					elm$core$Task$andThen,
+					function (b) {
+						return elm$core$Task$succeed(
+							A2(func, a, b));
+					},
+					taskB);
+			},
+			taskA);
+	});
+var elm$core$Task$sequence = function (tasks) {
+	return A3(
+		elm$core$List$foldr,
+		elm$core$Task$map2(elm$core$List$cons),
+		elm$core$Task$succeed(_List_Nil),
+		tasks);
+};
+var elm$http$Http$maybeSend = F4(
+	function (router, desiredTracker, progress, _n0) {
+		var actualTracker = _n0.a;
+		var toMsg = _n0.b;
+		return _Utils_eq(desiredTracker, actualTracker) ? elm$core$Maybe$Just(
+			A2(
+				elm$core$Platform$sendToApp,
+				router,
+				toMsg(progress))) : elm$core$Maybe$Nothing;
+	});
+var elm$http$Http$onSelfMsg = F3(
+	function (router, _n0, state) {
+		var tracker = _n0.a;
+		var progress = _n0.b;
+		return A2(
+			elm$core$Task$andThen,
+			function (_n1) {
+				return elm$core$Task$succeed(state);
+			},
+			elm$core$Task$sequence(
+				A2(
+					elm$core$List$filterMap,
+					A3(elm$http$Http$maybeSend, router, tracker, progress),
+					state.subs)));
+	});
+var elm$http$Http$Cancel = function (a) {
+	return {$: 'Cancel', a: a};
+};
+var elm$http$Http$cmdMap = F2(
+	function (func, cmd) {
+		if (cmd.$ === 'Cancel') {
+			var tracker = cmd.a;
+			return elm$http$Http$Cancel(tracker);
+		} else {
+			var r = cmd.a;
+			return elm$http$Http$Request(
+				{
+					allowCookiesFromOtherDomains: r.allowCookiesFromOtherDomains,
+					body: r.body,
+					expect: A2(_Http_mapExpect, func, r.expect),
+					headers: r.headers,
+					method: r.method,
+					timeout: r.timeout,
+					tracker: r.tracker,
+					url: r.url
+				});
+		}
+	});
+var elm$http$Http$MySub = F2(
+	function (a, b) {
+		return {$: 'MySub', a: a, b: b};
+	});
+var elm$http$Http$subMap = F2(
+	function (func, _n0) {
+		var tracker = _n0.a;
+		var toMsg = _n0.b;
+		return A2(
+			elm$http$Http$MySub,
+			tracker,
+			A2(elm$core$Basics$composeR, toMsg, func));
+	});
+_Platform_effectManagers['Http'] = _Platform_createManager(elm$http$Http$init, elm$http$Http$onEffects, elm$http$Http$onSelfMsg, elm$http$Http$cmdMap, elm$http$Http$subMap);
+var elm$http$Http$command = _Platform_leaf('Http');
+var elm$http$Http$subscription = _Platform_leaf('Http');
+var elm$http$Http$request = function (r) {
+	return elm$http$Http$command(
+		elm$http$Http$Request(
+			{allowCookiesFromOtherDomains: false, body: r.body, expect: r.expect, headers: r.headers, method: r.method, timeout: r.timeout, tracker: r.tracker, url: r.url}));
+};
+var elm$http$Http$get = function (r) {
+	return elm$http$Http$request(
+		{body: elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
+};
+var krisajenkins$remotedata$RemoteData$Failure = function (a) {
+	return {$: 'Failure', a: a};
+};
+var krisajenkins$remotedata$RemoteData$Success = function (a) {
+	return {$: 'Success', a: a};
+};
+var krisajenkins$remotedata$RemoteData$fromResult = function (result) {
+	if (result.$ === 'Err') {
+		var e = result.a;
+		return krisajenkins$remotedata$RemoteData$Failure(e);
+	} else {
+		var x = result.a;
+		return krisajenkins$remotedata$RemoteData$Success(x);
+	}
+};
+var author$project$Decks$getDecks = elm$http$Http$get(
+	{
+		expect: A2(
+			elm$http$Http$expectJson,
+			A2(elm$core$Basics$composeR, krisajenkins$remotedata$RemoteData$fromResult, author$project$AppTypes$DecksReceived),
+			elm$json$Json$Decode$list(author$project$Decks$deckDecoder)),
+		url: author$project$Decks$url
+	});
+var elm$core$Basics$negate = function (n) {
+	return -n;
+};
+var krisajenkins$remotedata$RemoteData$NotAsked = {$: 'NotAsked'};
+var author$project$State$init = function (flags) {
+	var userDecks = function () {
+		if (flags.$ === 'Just') {
+			var cachedUserDecks = flags.a;
+			return cachedUserDecks;
+		} else {
+			return _List_Nil;
 		}
 	}();
 	return _Utils_Tuple2(
-		A4(author$project$AppTypes$Model, decks, 2, 0, false),
-		elm$core$Platform$Cmd$none);
+		A6(author$project$AppTypes$Model, 'Seré', krisajenkins$remotedata$RemoteData$NotAsked, userDecks, elm$core$Maybe$Nothing, -1, false),
+		author$project$Decks$getDecks);
 };
 var elm$core$Platform$Sub$batch = _Platform_batch;
 var elm$core$Platform$Sub$none = elm$core$Platform$Sub$batch(_List_Nil);
-var author$project$State$subscriptions = function (model) {
+var author$project$State$subscriptions = function (_n0) {
 	return elm$core$Platform$Sub$none;
 };
 var elm$json$Json$Encode$bool = _Json_wrap;
@@ -5481,89 +6585,190 @@ var author$project$Ports$cacheDecks = _Platform_outgoingPort(
 							})($.cards)),
 						_Utils_Tuple2(
 						'name',
-						elm$json$Json$Encode$string($.name))
+						elm$json$Json$Encode$string($.name)),
+						_Utils_Tuple2(
+						'slug',
+						elm$json$Json$Encode$string($.slug)),
+						_Utils_Tuple2(
+						'tags',
+						elm$json$Json$Encode$list(elm$json$Json$Encode$string)($.tags))
 					]));
 		}));
-var author$project$State$markCardAsLearnt = F3(
-	function (activeCardId, cardIterIndex, card) {
-		return _Utils_eq(cardIterIndex, activeCardId) ? _Utils_update(
-			card,
-			{learnt: true}) : card;
+var author$project$State$reducerDisplayCard = F2(
+	function (model, cardIndex) {
+		return _Utils_update(
+			model,
+			{activeCardId: cardIndex, cardIsFlipped: false});
 	});
-var elm$core$Basics$not = _Basics_not;
-var author$project$State$toggleLearnt = F3(
-	function (activeCardId, cardIterIndex, card) {
-		return _Utils_eq(cardIterIndex, activeCardId) ? _Utils_update(
-			card,
-			{learnt: !card.learnt}) : card;
-	});
-var author$project$State$updateDeck = F4(
-	function (activeDeckId, func, deckIterIndex, deck) {
-		return _Utils_eq(deckIterIndex, activeDeckId) ? _Utils_update(
+var author$project$State$synchronizeCards = F2(
+	function (applicationDeck, deck) {
+		var updatedCards = A3(
+			elm$core$List$map2,
+			F2(
+				function (appDeckCard, userDeckCard) {
+					return _Utils_update(
+						userDeckCard,
+						{back: appDeckCard.back, front: appDeckCard.front});
+				}),
+			applicationDeck.cards,
+			deck.cards);
+		var deckCardLength = elm$core$List$length(deck.cards);
+		var cardsAppendage = A2(elm$core$List$drop, deckCardLength, applicationDeck.cards);
+		return _Utils_update(
 			deck,
 			{
-				cards: A2(elm$core$List$indexedMap, func, deck.cards)
-			}) : deck;
+				cards: _Utils_ap(updatedCards, cardsAppendage),
+				name: applicationDeck.name,
+				tags: applicationDeck.tags
+			});
 	});
-var elm$core$Basics$negate = function (n) {
-	return -n;
+var author$project$Utils$isDeckInList = F2(
+	function (slug, deckList) {
+		var _n0 = A2(author$project$Utils$findBySlug, slug, deckList);
+		if (_n0.$ === 'Just') {
+			return true;
+		} else {
+			return false;
+		}
+	});
+var author$project$Utils$replaceBySlug = F3(
+	function (slug, replacementDeckFn, deck) {
+		return _Utils_eq(slug, deck.slug) ? replacementDeckFn(deck) : deck;
+	});
+var elm$core$Basics$not = _Basics_not;
+var author$project$State$updatedUserDecks = F2(
+	function (model, onlySync) {
+		var _n0 = model.applicationDecks;
+		if (_n0.$ === 'Success') {
+			var applicationDecks = _n0.a;
+			var _n1 = model.activeDeckSlug;
+			if (_n1.$ === 'Just') {
+				var activeDeckSlug = _n1.a;
+				var _n2 = A2(author$project$Utils$findBySlug, activeDeckSlug, applicationDecks);
+				if (_n2.$ === 'Just') {
+					var applicationDeck = _n2.a;
+					return onlySync ? A2(
+						elm$core$List$map,
+						A2(
+							author$project$Utils$replaceBySlug,
+							activeDeckSlug,
+							author$project$State$synchronizeCards(applicationDeck)),
+						model.userDecks) : ((!A2(author$project$Utils$isDeckInList, activeDeckSlug, model.userDecks)) ? _Utils_ap(
+						model.userDecks,
+						_List_fromArray(
+							[applicationDeck])) : model.userDecks);
+				} else {
+					return model.userDecks;
+				}
+			} else {
+				return model.userDecks;
+			}
+		} else {
+			return model.userDecks;
+		}
+	});
+var author$project$State$reducerDisplayDeck = F2(
+	function (model, deckSlug) {
+		return _Utils_update(
+			model,
+			{
+				activeCardId: 0,
+				activeDeckSlug: elm$core$Maybe$Just(deckSlug),
+				userDecks: A2(
+					author$project$State$updatedUserDecks,
+					_Utils_update(
+						model,
+						{
+							activeDeckSlug: elm$core$Maybe$Just(deckSlug)
+						}),
+					true)
+			});
+	});
+var author$project$State$reducerDisplayDeckList = function (model) {
+	return _Utils_update(
+		model,
+		{activeCardId: -1, activeDeckSlug: elm$core$Maybe$Nothing});
 };
+var author$project$State$reducerFlipCard = function (model) {
+	return _Utils_update(
+		model,
+		{
+			cardIsFlipped: !model.cardIsFlipped,
+			userDecks: (model.activeCardId > 0) ? A2(author$project$State$updatedUserDecks, model, false) : model.userDecks
+		});
+};
+var author$project$State$reducerUpdateApplicationDecks = F2(
+	function (model, response) {
+		return _Utils_update(
+			model,
+			{applicationDecks: response});
+	});
+var author$project$State$reducerUpdateDecks = F2(
+	function (model, cardUpdateFunc) {
+		var updateCard = F2(
+			function (cardIterIndex, card) {
+				return _Utils_eq(cardIterIndex, model.activeCardId) ? cardUpdateFunc(card) : card;
+			});
+		var updateDeck = function (deck) {
+			var _n0 = model.activeDeckSlug;
+			if (_n0.$ === 'Just') {
+				var activeDeckSlug = _n0.a;
+				return _Utils_eq(deck.slug, activeDeckSlug) ? _Utils_update(
+					deck,
+					{
+						cards: A2(elm$core$List$indexedMap, updateCard, deck.cards)
+					}) : deck;
+			} else {
+				return deck;
+			}
+		};
+		return _Utils_update(
+			model,
+			{
+				userDecks: A2(
+					elm$core$List$map,
+					updateDeck,
+					A2(author$project$State$updatedUserDecks, model, false))
+			});
+	});
+var author$project$State$toggleActiveCardLearnt = function (card) {
+	return _Utils_update(
+		card,
+		{learnt: !card.learnt});
+};
+var elm$core$Platform$Cmd$batch = _Platform_batch;
+var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var author$project$State$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
 			case 'DisplayDeckList':
 				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{activeCardId: -1, activeDeckId: -1}),
+					author$project$State$reducerDisplayDeckList(model),
 					elm$core$Platform$Cmd$none);
 			case 'DisplayDeck':
-				var deckIndex = msg.a;
+				var deckSlug = msg.a;
 				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{activeCardId: 0, activeDeckId: deckIndex}),
+					A2(author$project$State$reducerDisplayDeck, model, deckSlug),
 					elm$core$Platform$Cmd$none);
 			case 'DisplayCard':
 				var cardIndex = msg.a;
 				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{activeCardId: cardIndex, cardIsFlipped: false}),
+					A2(author$project$State$reducerDisplayCard, model, cardIndex),
 					elm$core$Platform$Cmd$none);
 			case 'FlipCard':
 				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{cardIsFlipped: !model.cardIsFlipped}),
+					author$project$State$reducerFlipCard(model),
 					elm$core$Platform$Cmd$none);
 			case 'ToggleLearnt':
 				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							decks: A2(
-								elm$core$List$indexedMap,
-								A2(
-									author$project$State$updateDeck,
-									model.activeDeckId,
-									author$project$State$toggleLearnt(model.activeCardId)),
-								model.decks)
-						}),
+					A2(author$project$State$reducerUpdateDecks, model, author$project$State$toggleActiveCardLearnt),
 					elm$core$Platform$Cmd$none);
+			case 'GetDecks':
+				return _Utils_Tuple2(model, author$project$Decks$getDecks);
 			default:
+				var response = msg.a;
 				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							decks: A2(
-								elm$core$List$indexedMap,
-								A2(
-									author$project$State$updateDeck,
-									model.activeDeckId,
-									author$project$State$markCardAsLearnt(model.activeCardId)),
-								model.decks)
-						}),
+					A2(author$project$State$reducerUpdateApplicationDecks, model, response),
 					elm$core$Platform$Cmd$none);
 		}
 	});
@@ -5572,14 +6777,13 @@ var author$project$State$updateWithStorage = F2(
 		var _n0 = A2(author$project$State$update, msg, model);
 		var newModel = _n0.a;
 		var commands = _n0.b;
-		var decks = newModel.decks;
 		return _Utils_Tuple2(
 			newModel,
 			elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
 						commands,
-						author$project$Ports$cacheDecks(decks)
+						author$project$Ports$cacheDecks(newModel.userDecks)
 					])));
 	});
 var elm$browser$Browser$External = function (a) {
@@ -5603,9 +6807,7 @@ var elm$core$Basics$never = function (_n0) {
 var elm$core$Task$Perform = function (a) {
 	return {$: 'Perform', a: a};
 };
-var elm$core$Task$succeed = _Scheduler_succeed;
 var elm$core$Task$init = elm$core$Task$succeed(_Utils_Tuple0);
-var elm$core$Task$andThen = _Scheduler_andThen;
 var elm$core$Task$map = F2(
 	function (func, taskA) {
 		return A2(
@@ -5616,29 +6818,6 @@ var elm$core$Task$map = F2(
 			},
 			taskA);
 	});
-var elm$core$Task$map2 = F3(
-	function (func, taskA, taskB) {
-		return A2(
-			elm$core$Task$andThen,
-			function (a) {
-				return A2(
-					elm$core$Task$andThen,
-					function (b) {
-						return elm$core$Task$succeed(
-							A2(func, a, b));
-					},
-					taskB);
-			},
-			taskA);
-	});
-var elm$core$Task$sequence = function (tasks) {
-	return A3(
-		elm$core$List$foldr,
-		elm$core$Task$map2(elm$core$List$cons),
-		elm$core$Task$succeed(_List_Nil),
-		tasks);
-};
-var elm$core$Platform$sendToApp = _Platform_sendToApp;
 var elm$core$Task$spawnCmd = F2(
 	function (router, _n0) {
 		var task = _n0.a;
@@ -5809,13 +6988,7 @@ var elm$url$Url$fromString = function (str) {
 		A2(elm$core$String$dropLeft, 8, str)) : elm$core$Maybe$Nothing);
 };
 var elm$browser$Browser$element = _Browser_element;
-var elm$json$Json$Decode$andThen = _Json_andThen;
 var elm$json$Json$Decode$bool = _Json_decodeBool;
-var elm$json$Json$Decode$field = _Json_decodeField;
-var elm$json$Json$Decode$list = _Json_decodeList;
-var elm$json$Json$Decode$null = _Json_decodeNull;
-var elm$json$Json$Decode$oneOf = _Json_oneOf;
-var elm$json$Json$Decode$string = _Json_decodeString;
 var author$project$Main$main = elm$browser$Browser$element(
 	{init: author$project$State$init, subscriptions: author$project$State$subscriptions, update: author$project$State$updateWithStorage, view: author$project$MainView$view});
 _Platform_export({'Main':{'init':author$project$Main$main(
@@ -5829,34 +7002,47 @@ _Platform_export({'Main':{'init':author$project$Main$main(
 				elm$json$Json$Decode$list(
 					A2(
 						elm$json$Json$Decode$andThen,
-						function (name) {
+						function (tags) {
 							return A2(
 								elm$json$Json$Decode$andThen,
-								function (cards) {
-									return elm$json$Json$Decode$succeed(
-										{cards: cards, name: name});
-								},
-								A2(
-									elm$json$Json$Decode$field,
-									'cards',
-									elm$json$Json$Decode$list(
-										A2(
-											elm$json$Json$Decode$andThen,
-											function (learnt) {
-												return A2(
-													elm$json$Json$Decode$andThen,
-													function (front) {
-														return A2(
+								function (slug) {
+									return A2(
+										elm$json$Json$Decode$andThen,
+										function (name) {
+											return A2(
+												elm$json$Json$Decode$andThen,
+												function (cards) {
+													return elm$json$Json$Decode$succeed(
+														{cards: cards, name: name, slug: slug, tags: tags});
+												},
+												A2(
+													elm$json$Json$Decode$field,
+													'cards',
+													elm$json$Json$Decode$list(
+														A2(
 															elm$json$Json$Decode$andThen,
-															function (back) {
-																return elm$json$Json$Decode$succeed(
-																	{back: back, front: front, learnt: learnt});
+															function (learnt) {
+																return A2(
+																	elm$json$Json$Decode$andThen,
+																	function (front) {
+																		return A2(
+																			elm$json$Json$Decode$andThen,
+																			function (back) {
+																				return elm$json$Json$Decode$succeed(
+																					{back: back, front: front, learnt: learnt});
+																			},
+																			A2(elm$json$Json$Decode$field, 'back', elm$json$Json$Decode$string));
+																	},
+																	A2(elm$json$Json$Decode$field, 'front', elm$json$Json$Decode$string));
 															},
-															A2(elm$json$Json$Decode$field, 'back', elm$json$Json$Decode$string));
-													},
-													A2(elm$json$Json$Decode$field, 'front', elm$json$Json$Decode$string));
-											},
-											A2(elm$json$Json$Decode$field, 'learnt', elm$json$Json$Decode$bool)))));
+															A2(elm$json$Json$Decode$field, 'learnt', elm$json$Json$Decode$bool)))));
+										},
+										A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string));
+								},
+								A2(elm$json$Json$Decode$field, 'slug', elm$json$Json$Decode$string));
 						},
-						A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string))))
+						A2(
+							elm$json$Json$Decode$field,
+							'tags',
+							elm$json$Json$Decode$list(elm$json$Json$Decode$string)))))
 			])))(0)}});}(this));
