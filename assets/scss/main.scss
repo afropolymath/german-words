@@ -84,6 +84,7 @@ section.main {
 
 .deck-list {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
   align-content: space-around;
   margin: -0.4em;
@@ -93,7 +94,7 @@ section.main {
     position: relative;
     flex-grow: 1;
     max-width: 100%;
-    min-width: 240px;
+    min-width: 160px;
     padding: 1.2em 1.4em;
     margin: 0.4em;
     border-radius: 2px;

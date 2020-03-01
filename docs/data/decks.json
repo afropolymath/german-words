@@ -1,12 +1,22 @@
 [
   {
-    "name": "Test set",
-    "slug": "some-name",
-    "tags": ["#german", "#grammar"],
+    "name": "Commonly used verbs",
+    "slug": "commonly-used-verbs",
+    "tags": ["#german", "#verbs"],
     "cards": [
-      { "front": "Front card", "back": "Back card" },
-      { "front": "die Milch (n)", "back": "Milk" },
-      { "front": "die Eingeladung", "back": "Invitation" }
+      { "front": "langern", "back": "To extend" },
+      { "front": "wollen", "back": "To want" },
+      { "front": "gehen", "back": "To go" },
+      { "front": "tragen", "back": "To carry" },
+      { "front": "sehen", "back": "To see" },
+      { "front": "fragen", "back": "To ask" },
+      { "front": "machen", "back": "To do/make" },
+      { "front": "schreiben", "back": "To write" },
+      { "front": "beobacheten", "back": "To observe" },
+      { "front": "uberlegen", "back": "To consider" },
+      { "front": "lesen", "back": "To read" },
+      { "front": "rauchen", "back": "To smoke" },
+      { "front": "benutzen", "back": "To use" }
     ]
   },
   {
@@ -35,8 +45,55 @@
     ]
   },
   {
-    "name": "Dictionary Deck 1",
+    "name": "German Subordinating Conjunctions",
+    "slug": "conjunktionen-2",
+    "tags": ["#german", "#grammar", "#subordinating", "#conjunctions"],
+    "cards": [
+      { "front": "bevor", "back": "before" },
+      { "front": "nachdem", "back": "after" },
+      { "front": "ehe", "back": "before" },
+      {
+        "front": "seit, seitdem",
+        "back": "since (indicating time, not a causality)"
+      },
+      { "front": "während", "back": "while, during, whereas" },
+      { "front": "als", "back": "when (in describing past events)" },
+      {
+        "front": "wenn",
+        "back": "when (describing present and future), if, whenever"
+      },
+      { "front": "wann", "back": "when (for questions only)" },
+      { "front": "bis", "back": "until, by" },
+      { "front": "obwohl", "back": "although" },
+      { "front": "als ob, als wenn, als", "back": "as if" },
+      { "front": "sooft", "back": "as often as (whenever)" },
+      { "front": "sobald", "back": "as soon as" },
+      { "front": "solange", "back": "as long as" },
+      { "front": "da", "back": "because" },
+      { "front": "indem", "back": "by … -ing" },
+      { "front": "weil", "back": "because" },
+      {
+        "front": "ob",
+        "back": "whether*, if (*only use when you could say “whether” in English as well)"
+      },
+      { "front": "falls", "back": "in case, if" },
+      { "front": "wenn", "back": "if, when" },
+      { "front": "um … zu", "back": "in order to" },
+      { "front": "dass", "back": "that" },
+      { "front": "sodass", "back": "so that" },
+      { "front": "damit", "back": "so that" }
+    ]
+  },
+  {
+    "name": "Everyday expressions",
+    "slug": "everyday-expressions",
+    "tags": ["#german", "#expressions", "#popularwords"],
+    "cards": []
+  },
+  {
+    "name": "V Dictionary Deck 1",
     "slug": "dictionary-deck-1",
+    "tags": ["#german"],
     "cards": [
       { "front": "verwelkte Blumen", "back": "faded flowers" },
       { "front": "verwirklichen", "back": "realize" },
@@ -132,14 +189,6 @@
       { "front": "Vorbereitung", "back": "preparation" },
       { "front": "Vorbild", "back": "model" },
       { "front": "Vorderside", "back": "front" }
-    ]
-  },
-  {
-    "name": "Commonly used verbs",
-    "slug": "commonly-used-verbs",
-    "cards": [
-      { "front": "langern", "back": "To extend" },
-      { "front": "wollen", "back": "To want" }
     ]
   }
 ]

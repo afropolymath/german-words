@@ -15,6 +15,14 @@ German-English Dictionary JSON
 Conjunctions Deck
 <https://www.clozemaster.com/blog/german-conjunctions/>
 
+German words
+<https://www.learnalanguage.com/learn-german/german-words/>
+<https://www.germanpod101.com/german-word-lists/>
+<https://1000mostcommonwords.com/1000-most-common-german-words/>
+
+German course
+<https://www.deutsch-lernen.com/learn-german-online/e_dc.php>
+
 -}
 url : String
 url =
