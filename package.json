@@ -18,7 +18,7 @@
   "dependencies": {
     "chokidar-cli": "^2.1.0",
     "concurrently": "^5.0.0",
-    "node-sass": "^4.13.0",
+    "node-sass": "^7.0.0",
     "reload": "^3.0.3"
   }
 }
